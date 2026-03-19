@@ -15,16 +15,16 @@ type ImageUpload struct {
 }
 
 type ImageMeta struct {
-	Id     string `json:"id"`
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Size   uint32 `json:"size"`
-	Width  uint32 `json:"width"`
-	Height uint32 `json:"height"`
+	ImageId string `json:"image_id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Size    uint32 `json:"size"`
+	Width   uint32 `json:"width"`
+	Height  uint32 `json:"height"`
 }
 
 type Image struct {
-	Id string `json:"id"`
+	ImageId string `json:"image_id"`
 }
 
 type Pagination struct {
@@ -57,11 +57,11 @@ type TransformImage struct {
 }
 
 type ImageTransformations struct {
-	Id              string         `json:"id"`
+	ImageId         string         `json:"image_id"`
 	Transformations TransformImage `json:"transformations"`
 }
 
-type ScheduledTransformation struct {
+type ScheduledImageTransformation struct {
 	TransformationId string `json:"transformation_id"`
 }
 

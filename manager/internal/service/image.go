@@ -24,11 +24,11 @@ func (s *ImageService) GetPaginatedImage(ctx context.Context, req *api.Paginatio
 	return nil, nil // TODO: implement
 }
 
-func (s *ImageService) GetImageMeta(ctx context.Context, req *api.Image) (*api.ImageContent, error) {
+func (s *ImageService) GetImageMeta(ctx context.Context, req *api.Image) (*api.ImageMeta, error) {
 	return nil, nil // TODO: implement
 }
 
-func (s *ImageService) TransformImage(ctx context.Context, req *api.TransformImage) (*api.ScheduledTransformation, error) {
+func (s *ImageService) TransformImage(ctx context.Context, req *api.ImageTransformations) (*api.ScheduledImageTransformation, error) {
 	return nil, nil // TODO: implement
 }
 

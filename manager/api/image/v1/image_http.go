@@ -21,17 +21,17 @@ type ImageHTTPServer interface {
 	UploadImage(context.Context, *ImageUpload) (*ImageMeta, error)
 	GetSingleImage(context.Context, *Image) (*ImageContent, error)
 	GetPaginatedImage(context.Context, *Pagination) (ImageStream, error)
-	GetImageMeta(context.Context, *Image) (*ImageContent, error)
-	TransformImage(context.Context, *TransformImage) (*ScheduledTransformation, error)
+	GetImageMeta(context.Context, *Image) (*ImageMeta, error)
+	TransformImage(context.Context, *ImageTransformations) (*ScheduledImageTransformation, error)
 	ImageNotification(context.Context) (ImageNotifier, error)
 }
 
 func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServer) {
 	r := s.Route("/")
 	r.POST("/v1/image/upload", uploadImageHandler(c, srv))
-	r.GET("/v1/image/single/{id}", getSingleImageHandler(srv))
+	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv))
 	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv))
-	r.GET("/v1/image/meta/{id}", getImageMetaHandler(srv))
+	r.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
 	r.PUT("/v1/image/transform", transformImageHandler(srv))
 
 	s.HandleFunc("/v1/image/ws", imageNotificationHandler(srv))
@@ -175,14 +175,14 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 		}
 
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
-			return srv.TransformImage(ctx, req.(*TransformImage))
+			return srv.TransformImage(ctx, req.(*ImageTransformations))
 		})
 		out, err := mHandler(ctx, &in)
 		if err != nil {
 			return err
 		}
 
-		reply := out.(*ScheduledTransformation)
+		reply := out.(*ScheduledImageTransformation)
 		return ctx.Result(http.StatusOK, reply)
 	}
 }

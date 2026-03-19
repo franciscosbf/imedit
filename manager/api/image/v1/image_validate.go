@@ -25,7 +25,7 @@ func (iu *ImageUpload) Validate() error {
 }
 
 func (i *Image) Validate() error {
-	if i.Id == "" {
+	if i.ImageId == "" {
 		return fmt.Errorf("image id cannot be empty")
 	}
 
@@ -45,7 +45,7 @@ func (p *Pagination) Validate() error {
 }
 
 func (it *ImageTransformations) Validate() error {
-	if it.Id == "" {
+	if it.ImageId == "" {
 		return fmt.Errorf("image id cannot be empty")
 	}
 
