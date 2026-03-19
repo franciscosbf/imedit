@@ -1,0 +1,100 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: User API
+    version: 0.0.1
+paths:
+    /v1/user/login:
+        post:
+            tags:
+                - User
+            operationId: User_LoginUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.LoginUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.LoginUserReply'
+    /v1/user/password:
+        put:
+            tags:
+                - User
+            operationId: User_UpdateUserPassword
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.UpdateUserPasswordRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.UpdateUserPasswordReply'
+    /v1/user/register:
+        post:
+            tags:
+                - User
+            operationId: User_RegisterUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.RegisterUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.RegisterUserReply'
+components:
+    schemas:
+        api.user.v1.LoginUserReply:
+            type: object
+            properties:
+                token:
+                    type: string
+        api.user.v1.LoginUserRequest:
+            type: object
+            properties:
+                username:
+                    type: string
+                password:
+                    type: string
+        api.user.v1.RegisterUserReply:
+            type: object
+            properties: {}
+        api.user.v1.RegisterUserRequest:
+            type: object
+            properties:
+                username:
+                    type: string
+                password:
+                    type: string
+        api.user.v1.UpdateUserPasswordReply:
+            type: object
+            properties: {}
+        api.user.v1.UpdateUserPasswordRequest:
+            type: object
+            properties:
+                username:
+                    type: string
+                currentPassword:
+                    type: string
+                newPassword:
+                    type: string
+tags:
+    - name: User

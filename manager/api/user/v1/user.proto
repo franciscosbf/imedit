@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package api.user.v1;
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+option go_package = "manager/api/user/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.v1";
+
+service User {
+	rpc RegisterUser (RegisterUserRequest) returns (RegisterUserReply) {
+    option (google.api.http) = {
+        post: "/v1/user/register"
+        body: "*"
+    };
+  }
+	rpc LoginUser (LoginUserRequest) returns (LoginUserReply) {
+    option (google.api.http) = {
+        post: "/v1/user/login"
+        body: "*"
+    };
+  }
+	rpc UpdateUserPassword (UpdateUserPasswordRequest) returns (UpdateUserPasswordReply) {
+    option (google.api.http) = {
+        put: "/v1/user/password"
+        body: "*"
+    };
+  }
+}
+
+message RegisterUserRequest {
+  string username = 1 [(validate.rules).string = {min_len: 6, max_len: 32}];
+  string password = 2 [(validate.rules).string = {max_len: 255}];
+}
+
+message RegisterUserReply {}
+
+message LoginUserRequest {
+  string username = 1 [(validate.rules).string = {min_len: 6, max_len: 32}];
+  string password = 2 [(validate.rules).string = {max_len: 255}];
+}
+
+message LoginUserReply {
+  string token = 1;
+}
+
+message UpdateUserPasswordRequest {
+  string username = 1 [(validate.rules).string = {min_len: 6, max_len: 32}];
+  string current_password = 2 [(validate.rules).string = {max_len: 255}];
+  string new_password = 3 [(validate.rules).string = {max_len: 255}];
+}
+
+message UpdateUserPasswordReply {}
