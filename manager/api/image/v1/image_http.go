@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"strings"
 
 	"manager/internal/conf"
 
@@ -65,6 +66,8 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		if err != nil {
 			return err
 		}
+
+		imgType = strings.TrimLeft(imgType, "image/")
 
 		in := ImageUpload{
 			Image: ImageContent{imgName, imgType, imgContent},

@@ -27,7 +27,7 @@ var (
 	imgUpload = &ImageUpload{
 		Image: ImageContent{
 			Name:    "img.png",
-			Type:    "image/png",
+			Type:    "png",
 			Content: []byte("abcd"),
 		},
 	}
@@ -47,14 +47,14 @@ var (
 	imgMeta = &ImageMeta{
 		ImageId: "abc",
 		Name:    "img.png",
-		Type:    "image/png",
+		Type:    "png",
 		Size:    4,
 		Width:   50,
 		Height:  40,
 	}
 	imgContent = &ImageContent{
 		Name:    "img.png",
-		Type:    "image/png",
+		Type:    "png",
 		Content: []byte("abcd"),
 	}
 	schedImgTransformation = &ScheduledImageTransformation{
