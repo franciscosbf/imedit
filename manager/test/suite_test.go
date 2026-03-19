@@ -165,7 +165,7 @@ func (s *IntegrationSuite) SetupSuite() {
 
 	config := conf.Bootstrap{
 		Server: &conf.Server{Http: &conf.Server_HTTP{
-			Addr:    "0.0.0.0:8080",
+			Addr:    "0.0.0.0:0",
 			Timeout: durationpb.New(time.Second),
 		}},
 		Auth: &conf.Auth{
@@ -214,7 +214,9 @@ func (s *IntegrationSuite) SetupSuite() {
 		Password: config.Data.Redis.Password,
 	})
 
-	endpoint := "localhost:8080"
+	u, err := server.Endpoint()
+	assert.NoError(s.T(), err, "failed to retrieve http server endpoint")
+	endpoint := u.Host
 	client, err := khttp.NewClient(
 		context.Background(),
 		khttp.WithEndpoint(endpoint))
@@ -247,6 +249,8 @@ func (s *IntegrationSuite) TeardownSuite() {
 func (s *IntegrationSuite) AfterTest(_, _ string) {
 	_, err := s.db.User.Delete().Exec(context.Background())
 	assert.NoError(s.T(), err, "failed to delete users")
+
+	// TODO: delete everything about images
 }
 
 func TestIntegrationSuite(t *testing.T) {
