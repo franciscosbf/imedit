@@ -46,6 +46,7 @@ func (s *IntegrationSuite) TestUploadImage() {
 	assert.NoError(s.T(), err)
 
 	_ = resp
+	// TODO: implement
 }
 
 func (s *IntegrationSuite) TestGetSingleImage() {
