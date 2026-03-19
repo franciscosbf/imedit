@@ -21,7 +21,7 @@ func (s *IntegrationSuite) TestUserCreation() {
 	assert.NoError(
 		s.T(),
 		s.sendJsonRequest("POST", "/v1/user/register", &request, &response),
-		"failed to send request",
+		"failed to request user registration",
 	)
 
 	u, err := s.db.User.
@@ -51,7 +51,7 @@ func (s *IntegrationSuite) TestUserLogin() {
 	assert.NoError(
 		s.T(),
 		s.sendJsonRequest("POST", "/v1/user/login", &request, &response),
-		"failed to send request",
+		"failed to request user login",
 	)
 
 	signedJwt, err := s.jwtAuth.Sign(tu.username)
@@ -83,7 +83,7 @@ func (s *IntegrationSuite) TestUserPasswordChanged() {
 	assert.NoError(
 		s.T(),
 		s.sendJsonRequest("PUT", "/v1/user/password", &request, &response, khttp.Header(&header)),
-		"failed to send request",
+		"failed to request user password change",
 	)
 
 	u, err := s.db.User.
