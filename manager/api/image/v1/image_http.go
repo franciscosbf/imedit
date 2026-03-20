@@ -118,7 +118,7 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 
 		mHeaders := make(textproto.MIMEHeader)
 		mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", reply.Name))
-		mHeaders.Set("Content-Type", reply.Type)
+		mHeaders.Set("Content-Type", "image/"+reply.Type)
 
 		mpw, err := mw.CreatePart(mHeaders)
 		if err != nil {

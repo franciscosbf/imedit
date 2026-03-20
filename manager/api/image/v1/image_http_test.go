@@ -254,6 +254,7 @@ func (s *ImageHttpTestSuite) TestGetSingleImage() {
 	assert.NoError(s.T(), err, "expeting image part")
 	assert.Equal(s.T(), "image", part.FormName())
 	assert.Equal(s.T(), "img.png", part.FileName())
+	assert.Equal(s.T(), "image/png", part.Header.Get("Content-Type"))
 	gotContent, err := io.ReadAll(part)
 	assert.NoError(s.T(), err, "failed to read file content")
 	assert.Equal(s.T(), imgContent.Content, gotContent)
