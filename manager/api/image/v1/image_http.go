@@ -195,17 +195,19 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	}
 }
 
+type returnedEvent struct {
+	Etype string `json:"type"`
+	Event `json:"event"`
+}
+
 type notifierClient struct {
 	*websocket.Conn
 }
 
 func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
-	e := struct {
-		Etype string `json:"type"`
-		Event `json:"event"`
-	}{event.Type().String(), event}
+	retEvent := returnedEvent{event.Type().String(), event}
 
-	return wsjson.Write(ctx, nc.Conn, e)
+	return wsjson.Write(ctx, nc.Conn, retEvent)
 }
 
 func imageNotificationHandler(
