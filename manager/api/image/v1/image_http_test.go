@@ -360,6 +360,8 @@ func (s *ImageHttpTestSuite) TestImageNotification() {
 	assert.Equal(s.T(), TransformedImage.String(), n.Etype)
 	assert.Equal(s.T(), transformedImgEvent, &n.Event)
 
+	assert.NoError(s.T(), conn.Close(websocket.StatusNormalClosure, ""), "failed to issue close handshake")
+
 	s.waitAndAssertMock(callEndpoint)
 	s.waitAndAssertMock(callNotifier)
 }
