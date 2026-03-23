@@ -350,7 +350,6 @@ func (s *ImageHttpTestSuite) TestImageNotification() {
 
 	conn, err := s.openWsConnection(ctx, "/v1/image/ws")
 	assert.NoError(s.T(), err, "failed to open WebSocket connection")
-	defer func() { _ = conn.CloseNow() }()
 
 	n := struct {
 		Etype string                `json:"type"`
