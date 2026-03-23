@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -221,13 +222,14 @@ func imageNotificationHandler(
 			return
 		}
 		nCli := notifierClient{conn}
+
+		ctx := nCli.CloseRead(kctx.Request().Context())
+
 		defer func() {
-			if err := nCli.CloseNow(); err != nil {
+			if err := nCli.CloseNow(); err != nil && err != net.ErrClosed && ctx.Err() != context.Canceled {
 				log.Warnf("WebSocket connection wasn't properly closed: %v", err)
 			}
 		}()
-
-		ctx := nCli.CloseRead(kctx.Request().Context())
 
 		notifier, err := srv.ImageNotification(ctx)
 		if err != nil {
