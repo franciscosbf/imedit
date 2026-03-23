@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -11,6 +12,9 @@ import (
 
 	"manager/internal/conf"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 )
 
@@ -27,15 +31,16 @@ type ImageHTTPServer interface {
 	ImageNotification(context.Context) (ImageNotifier, error)
 }
 
-func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServer) {
+func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServer, logger log.Logger) {
+	log := log.NewHelper(logger)
+
 	r := s.Route("/")
 	r.POST("/v1/image/upload", uploadImageHandler(c, srv))
 	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv))
 	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv))
 	r.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
 	r.PUT("/v1/image/transform", transformImageHandler(srv))
-
-	s.HandleFunc("/v1/image/ws", imageNotificationHandler(srv))
+	r.GET("/v1/image/ws", imageNotificationHandler(srv, log))
 }
 
 func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Context) error {
@@ -82,7 +87,7 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		}
 
 		reply := out.(*ImageMeta)
-		return ctx.Result(http.StatusOK, reply)
+		return ctx.JSON(http.StatusOK, reply)
 	}
 }
 
@@ -166,7 +171,7 @@ func getImageMetaHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 		}
 
 		reply := out.(*ImageMeta)
-		return ctx.Result(http.StatusOK, reply)
+		return ctx.JSON(http.StatusOK, reply)
 	}
 }
 
@@ -186,15 +191,78 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 		}
 
 		reply := out.(*ScheduledImageTransformation)
-		return ctx.Result(http.StatusOK, reply)
+		return ctx.JSON(http.StatusOK, reply)
 	}
 }
 
-func imageNotificationHandler(srv ImageHTTPServer) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		_ = srv
-		_ = w
-		_ = r
-		// TODO: implement
+type notifierClient struct {
+	*websocket.Conn
+}
+
+func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
+	e := struct {
+		Etype string `json:"type"`
+		Event `json:"event"`
+	}{event.Type().String(), event}
+
+	return wsjson.Write(ctx, nc.Conn, e)
+}
+
+func imageNotificationHandler(
+	srv ImageHTTPServer,
+	log *log.Helper,
+) func(ctx khttp.Context) error {
+	return func(kctx khttp.Context) (_ error) {
+		conn, err := websocket.Accept(kctx.Response(), kctx.Request(), nil)
+		if err != nil {
+			log.Warnf("While accepting WebSocket connection: %v", err)
+			return
+		}
+		nCli := notifierClient{conn}
+		defer func() {
+			if err := nCli.CloseNow(); err != nil {
+				log.Warnf("WebSocket connection wasn't properly closed: %v", err)
+			}
+		}()
+
+		ctx := nCli.CloseRead(kctx.Request().Context())
+
+		notifier, err := srv.ImageNotification(ctx)
+		if err != nil {
+			event := UnexpectedErrorEvent{
+				Reason: fmt.Sprintf("failed to initialize notifier: %v", err),
+			}
+			if err := nCli.sendEvent(ctx, &event); err != nil {
+				log.Warnf("Could not notify client on failed notifier initialization: %v", err)
+			}
+
+			log.Errorf("Failed to initialize notifier: %v", err)
+			return
+		}
+
+		for {
+			var (
+				event Event
+				err   error
+				serr  error
+			)
+
+			if event, err = notifier.Notify(ctx); event == nil {
+				break
+			} else if err != nil {
+				event = &UnexpectedErrorEvent{err.Error()}
+			}
+
+			if serr = nCli.sendEvent(ctx, event); serr != nil {
+				log.Warnf("Could not notify client: %v", serr)
+				break
+			}
+
+			if event.Type() == UnexpectedError {
+				break
+			}
+		}
+
+		return
 	}
 }

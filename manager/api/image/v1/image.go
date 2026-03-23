@@ -1,5 +1,7 @@
 package v1
 
+import "context"
+
 type ImageContent struct {
 	Name    string
 	Type    string
@@ -69,21 +71,54 @@ type EventType int
 
 const (
 	TransformedImage EventType = iota
+	FailedImageTranformation
+	UnexpectedError
 )
+
+func (e EventType) String() string {
+	switch e {
+	case TransformedImage:
+		return "transformation_successful"
+	case FailedImageTranformation:
+		return "transformation_failure"
+	case UnexpectedError:
+		return "error"
+	default:
+		return "unknown"
+	}
+}
 
 type Event interface {
 	Type() EventType
 }
 
 type TransformedImageEvent struct {
-	Id               string `json:"id"`
+	ImageId          string `json:"image_id"`
 	TransformationId string `json:"transformation_id"`
 }
 
-func (TransformedImageEvent) Type() EventType {
+func (*TransformedImageEvent) Type() EventType {
 	return TransformedImage
 }
 
+type FailedImageTranformationEvent struct {
+	ImageId          string `json:"image_id"`
+	TransformationId string `json:"transformation_id"`
+	Reason           string `json:"reason"`
+}
+
+func (*FailedImageTranformationEvent) Type() EventType {
+	return FailedImageTranformation
+}
+
+type UnexpectedErrorEvent struct {
+	Reason string `json:"reason"`
+}
+
+func (*UnexpectedErrorEvent) Type() EventType {
+	return UnexpectedError
+}
+
 type ImageNotifier interface {
-	Notify(event Event) error
+	Notify(ctx context.Context) (Event, error)
 }

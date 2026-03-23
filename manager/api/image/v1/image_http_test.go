@@ -4,21 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
 	"manager/internal/conf"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 )
@@ -60,10 +65,34 @@ var (
 	schedImgTransformation = &ScheduledImageTransformation{
 		TransformationId: "def",
 	}
+	transformedImgEvent = &TransformedImageEvent{
+		ImageId:          "abc",
+		TransformationId: "def",
+	}
 )
+
+type MocketNotifier struct {
+	mock.Mock
+	called bool
+}
+
+func (m *MocketNotifier) Notify(ctx context.Context) (Event, error) {
+	if m.called {
+		<-ctx.Done()
+
+		return nil, nil
+	}
+
+	m.called = true
+
+	m.Called(nil)
+
+	return transformedImgEvent, nil
+}
 
 type MockedHttpServer struct {
 	mock.Mock
+	mNotifier *MocketNotifier
 }
 
 func (m *MockedHttpServer) UploadImage(ctx context.Context, req *ImageUpload) (*ImageMeta, error) {
@@ -99,7 +128,7 @@ func (m *MockedHttpServer) TransformImage(ctx context.Context, req *ImageTransfo
 func (m *MockedHttpServer) ImageNotification(ctx context.Context) (ImageNotifier, error) {
 	m.Called(nil)
 
-	return nil, nil // TODO: implement
+	return m.mNotifier, nil
 }
 
 type ImageHttpTestSuite struct {
@@ -121,7 +150,9 @@ func (s *ImageHttpTestSuite) BeforeTest(_, _ string) {
 	}
 	srv := khttp.NewServer(opts...)
 	mHttpSrv := new(MockedHttpServer)
-	RegisterImageHTTPServer(&config, srv, mHttpSrv)
+	mHttpSrv.mNotifier = new(MocketNotifier)
+	logger := log.NewStdLogger(os.Stdout)
+	RegisterImageHTTPServer(&config, srv, mHttpSrv, logger)
 
 	u, err := srv.Endpoint()
 	assert.NoError(s.T(), err, "failed to retrieve http server endpoint")
@@ -176,6 +207,12 @@ func (s *ImageHttpTestSuite) sendRawRequest(
 	return s.client.Do(req)
 }
 
+func (s *ImageHttpTestSuite) openWsConnection(ctx context.Context, path string) (*websocket.Conn, error) {
+	conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://%s/%s", s.endpoint, path), nil)
+
+	return conn, err
+}
+
 func (s *ImageHttpTestSuite) encodeJsonBody(v any) io.Reader {
 	buf := &bytes.Buffer{}
 
@@ -225,7 +262,8 @@ func (s *ImageHttpTestSuite) TestUploadImage() {
 
 	resp, err := s.sendRawRequest("POST", "/v1/image/upload", nil, header, &buf)
 	assert.NoError(s.T(), err, "failed to request image upload")
-	assert.Equal(s.T(), resp.StatusCode, http.StatusOK)
+	assert.Equal(s.T(), http.StatusOK, resp.StatusCode)
+	assert.Equal(s.T(), "application/json", resp.Header.Get("Content-Type"))
 
 	gotImgMeta := &ImageMeta{}
 	s.decodeJsonBody(resp.Body, gotImgMeta)
@@ -273,7 +311,8 @@ func (s *ImageHttpTestSuite) TestGetImageMeta() {
 
 	resp, err := s.sendRawRequest("GET", "/v1/image/meta/abc", nil, nil, nil)
 	assert.NoError(s.T(), err, "failed to request get image")
-	assert.Equal(s.T(), resp.StatusCode, http.StatusOK)
+	assert.Equal(s.T(), http.StatusOK, resp.StatusCode)
+	assert.Equal(s.T(), "application/json", resp.Header.Get("Content-Type"))
 
 	gotImgMeta := &ImageMeta{}
 	s.decodeJsonBody(resp.Body, gotImgMeta)
@@ -292,7 +331,8 @@ func (s *ImageHttpTestSuite) TestTransformImage() {
 
 	resp, err := s.sendRawRequest("PUT", "/v1/image/transform", nil, header, body)
 	assert.NoError(s.T(), err, "failed to request get image")
-	assert.Equal(s.T(), resp.StatusCode, http.StatusOK)
+	assert.Equal(s.T(), http.StatusOK, resp.StatusCode)
+	assert.Equal(s.T(), "application/json", resp.Header.Get("Content-Type"))
 
 	gotSchedImgTransformation := &ScheduledImageTransformation{}
 	s.decodeJsonBody(resp.Body, gotSchedImgTransformation)
@@ -302,7 +342,26 @@ func (s *ImageHttpTestSuite) TestTransformImage() {
 }
 
 func (s *ImageHttpTestSuite) TestImageNotification() {
-	// TODO: implement
+	callEndpoint := s.mHttpSrv.On("ImageNotification", nil).Return(s.mHttpSrv.mNotifier, nil).Once()
+	callNotifier := s.mHttpSrv.mNotifier.On("Notify", nil).Return(transformedImgEvent, nil).Once()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, err := s.openWsConnection(ctx, "/v1/image/ws")
+	assert.NoError(s.T(), err, "failed to open WebSocket connection")
+	defer func() { _ = conn.CloseNow() }()
+
+	n := struct {
+		Etype string                `json:"type"`
+		Event TransformedImageEvent `json:"event"`
+	}{}
+	assert.NoError(s.T(), wsjson.Read(ctx, conn, &n), "failed to read notification")
+	assert.Equal(s.T(), TransformedImage.String(), n.Etype)
+	assert.Equal(s.T(), transformedImgEvent, &n.Event)
+
+	s.waitAndAssertMock(callEndpoint)
+	s.waitAndAssertMock(callNotifier)
 }
 
 func TestImageHttpTestSuite(t *testing.T) {

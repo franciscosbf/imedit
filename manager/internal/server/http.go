@@ -36,6 +36,6 @@ func NewHTTPServer(c *conf.Server, jwtAuth auth.JwtAuthenticator, user *service.
 	}
 	srv := http.NewServer(opts...)
 	uv1.RegisterUserHTTPServer(srv, user)
-	iv1.RegisterImageHTTPServer(c, srv, image)
+	iv1.RegisterImageHTTPServer(c, srv, image, logger)
 	return srv
 }
