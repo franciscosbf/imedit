@@ -226,7 +226,8 @@ func imageNotificationHandler(
 		ctx := nCli.CloseRead(kctx.Request().Context())
 
 		defer func() {
-			if err := nCli.CloseNow(); err != nil && err != net.ErrClosed && ctx.Err() != context.Canceled {
+			err := nCli.Close(websocket.StatusNormalClosure, "connection closed")
+			if err != nil && err != net.ErrClosed && ctx.Err() != context.Canceled {
 				log.Warnf("WebSocket connection wasn't properly closed: %v", err)
 			}
 		}()
