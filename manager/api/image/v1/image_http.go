@@ -56,7 +56,7 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		req := ctx.Request()
 
 		if err := req.ParseMultipartForm(int64(multiPartMaxMemory)); err != nil {
-			return errors.BadRequest("HEADER_PARSER", err.Error())
+			return errors.BadRequest("CODEC", err.Error())
 		}
 
 		file, fHandler, err := req.FormFile("image")
@@ -71,7 +71,7 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		imgType := fHandler.Header.Get("Content-Type")
 		imgContent, err := io.ReadAll(file)
 		if err != nil {
-			return errors.InternalServer("MULTIPART", err.Error())
+			return errors.InternalServer("MULTIPART_PARSER", err.Error())
 		}
 
 		imgType = strings.TrimLeft(imgType, "image/")
@@ -97,9 +97,9 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		acceptValue := ctx.Header().Get("Accept")
 		if mediaType, _, err := mime.ParseMediaType(acceptValue); err != nil {
-			return errors.BadRequest("HEADER_PARSER", fmt.Sprintf("invalid Accept header value: %v", err))
+			return errors.BadRequest("CODEC", fmt.Sprintf("invalid Accept header value: %v", err))
 		} else if mediaType != "multipart/form-data" {
-			return errors.BadRequest("HEADER_PARSER", "expected content type multipart/form-data in Accept header")
+			return errors.BadRequest("CODEC", "expected content type multipart/form-data in Accept header")
 		}
 
 		var in Image
@@ -147,7 +147,7 @@ func getPaginatedImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error
 	return func(ctx khttp.Context) error {
 		var in Pagination
 		if err := ctx.BindQuery(&in); err != nil {
-			return errors.BadRequest("QUERY_PARSER", err.Error())
+			return err
 		}
 
 		// TODO: call handler and return images (should I do this in a stream fashion)
@@ -161,7 +161,7 @@ func getImageMetaHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		var in Image
 		if err := ctx.BindVars(&in); err != nil {
-			return errors.BadRequest("PATH_PARSER", err.Error())
+			return err
 		}
 
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -181,7 +181,7 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		var in ImageTransformations
 		if err := ctx.Bind(&in); err != nil {
-			return errors.BadRequest("BODY_PARSER", err.Error())
+			return err
 		}
 
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
