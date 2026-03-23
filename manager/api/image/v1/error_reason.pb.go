@@ -29,8 +29,6 @@ const (
 	ErrorReason_INVALID_IMAGE_PAGINATION      ErrorReason = 1
 	ErrorReason_IMAGE_NOT_FOUND               ErrorReason = 2
 	ErrorReason_INVALID_IMAGE_TRANSFORMATIONS ErrorReason = 3
-	ErrorReason_NOT_ACCEPTABLE_MEDIA_TYPE     ErrorReason = 4
-	ErrorReason_INVALID_MIME_TYPE             ErrorReason = 5
 )
 
 // Enum value maps for ErrorReason.
@@ -40,16 +38,12 @@ var (
 		1: "INVALID_IMAGE_PAGINATION",
 		2: "IMAGE_NOT_FOUND",
 		3: "INVALID_IMAGE_TRANSFORMATIONS",
-		4: "NOT_ACCEPTABLE_MEDIA_TYPE",
-		5: "INVALID_MIME_TYPE",
 	}
 	ErrorReason_value = map[string]int32{
 		"INVALID_IMAGE":                 0,
 		"INVALID_IMAGE_PAGINATION":      1,
 		"IMAGE_NOT_FOUND":               2,
 		"INVALID_IMAGE_TRANSFORMATIONS": 3,
-		"NOT_ACCEPTABLE_MEDIA_TYPE":     4,
-		"INVALID_MIME_TYPE":             5,
 	}
 )
 
@@ -84,14 +78,12 @@ var File_image_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_image_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1bimage/v1/error_reason.proto\x12\fapi.image.v1\x1a\x13errors/errors.proto*\xd6\x01\n" +
+	"\x1bimage/v1/error_reason.proto\x12\fapi.image.v1\x1a\x13errors/errors.proto*\x94\x01\n" +
 	"\vErrorReason\x12\x17\n" +
 	"\rINVALID_IMAGE\x10\x00\x1a\x04\xa8E\x90\x03\x12\"\n" +
 	"\x18INVALID_IMAGE_PAGINATION\x10\x01\x1a\x04\xa8E\x90\x03\x12\x19\n" +
 	"\x0fIMAGE_NOT_FOUND\x10\x02\x1a\x04\xa8E\x94\x03\x12'\n" +
-	"\x1dINVALID_IMAGE_TRANSFORMATIONS\x10\x03\x1a\x04\xa8E\x90\x03\x12#\n" +
-	"\x19NOT_ACCEPTABLE_MEDIA_TYPE\x10\x04\x1a\x04\xa8E\x96\x03\x12\x1b\n" +
-	"\x11INVALID_MIME_TYPE\x10\x05\x1a\x04\xa8E\xac\x02\x1a\x04\xa0E\xf4\x03B)\n" +
+	"\x1dINVALID_IMAGE_TRANSFORMATIONS\x10\x03\x1a\x04\xa8E\x90\x03\x1a\x04\xa0E\xf4\x03B)\n" +
 	"\fapi.image.v1P\x01Z\x17manager/api/image/v1;v1b\x06proto3"
 
 var (

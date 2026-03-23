@@ -58,27 +58,3 @@ func IsInvalidImageTransformations(err error) bool {
 func ErrorInvalidImageTransformations(format string, args ...interface{}) *errors.Error {
 	return errors.New(400, ErrorReason_INVALID_IMAGE_TRANSFORMATIONS.String(), fmt.Sprintf(format, args...))
 }
-
-func IsNotAcceptableMediaType(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := errors.FromError(err)
-	return e.Reason == ErrorReason_NOT_ACCEPTABLE_MEDIA_TYPE.String() && e.Code == 406
-}
-
-func ErrorNotAcceptableMediaType(format string, args ...interface{}) *errors.Error {
-	return errors.New(406, ErrorReason_NOT_ACCEPTABLE_MEDIA_TYPE.String(), fmt.Sprintf(format, args...))
-}
-
-func IsInvalidMimeType(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := errors.FromError(err)
-	return e.Reason == ErrorReason_INVALID_MIME_TYPE.String() && e.Code == 300
-}
-
-func ErrorInvalidMimeType(format string, args ...interface{}) *errors.Error {
-	return errors.New(300, ErrorReason_INVALID_MIME_TYPE.String(), fmt.Sprintf(format, args...))
-}

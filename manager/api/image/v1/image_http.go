@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 )
@@ -55,12 +56,12 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		req := ctx.Request()
 
 		if err := req.ParseMultipartForm(int64(multiPartMaxMemory)); err != nil {
-			return err
+			return errors.BadRequest("HEADER_PARSER", err.Error())
 		}
 
 		file, fHandler, err := req.FormFile("image")
 		if err != nil {
-			return err
+			return errors.InternalServer("MULTIPART", err.Error())
 		}
 		defer func() {
 			_ = file.Close()
@@ -70,7 +71,7 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		imgType := fHandler.Header.Get("Content-Type")
 		imgContent, err := io.ReadAll(file)
 		if err != nil {
-			return err
+			return errors.InternalServer("MULTIPART", err.Error())
 		}
 
 		imgType = strings.TrimLeft(imgType, "image/")
@@ -96,9 +97,9 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		acceptValue := ctx.Header().Get("Accept")
 		if mediaType, _, err := mime.ParseMediaType(acceptValue); err != nil {
-			return ErrorNotAcceptableMediaType("invalid Accept value: %v", err)
+			return errors.BadRequest("HEADER_PARSER", fmt.Sprintf("invalid Accept header value: %v", err))
 		} else if mediaType != "multipart/form-data" {
-			return ErrorInvalidMimeType("expected content type multipart/form-data in Accept header")
+			return errors.BadRequest("HEADER_PARSER", "expected content type multipart/form-data in Accept header")
 		}
 
 		var in Image
@@ -128,14 +129,14 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 
 		mpw, err := mw.CreatePart(mHeaders)
 		if err != nil {
-			return err
+			return errors.InternalServer("MULTIPART", err.Error())
 		}
 		if _, err := mpw.Write(reply.Content); err != nil {
-			return err
+			return errors.InternalServer("MULTIPART", err.Error())
 		}
 
 		if err := mw.Close(); err != nil {
-			return err
+			return errors.InternalServer("MULTIPART", err.Error())
 		}
 
 		return nil
@@ -146,7 +147,7 @@ func getPaginatedImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error
 	return func(ctx khttp.Context) error {
 		var in Pagination
 		if err := ctx.BindQuery(&in); err != nil {
-			return err
+			return errors.BadRequest("QUERY_PARSER", err.Error())
 		}
 
 		// TODO: call handler and return images (should I do this in a stream fashion)
@@ -160,7 +161,7 @@ func getImageMetaHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		var in Image
 		if err := ctx.BindVars(&in); err != nil {
-			return err
+			return errors.BadRequest("PATH_PARSER", err.Error())
 		}
 
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -180,7 +181,7 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		var in ImageTransformations
 		if err := ctx.Bind(&in); err != nil {
-			return err
+			return errors.BadRequest("BODY_PARSER", err.Error())
 		}
 
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
