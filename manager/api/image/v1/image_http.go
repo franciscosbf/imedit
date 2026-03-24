@@ -39,7 +39,7 @@ func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServe
 	r := s.Route("/")
 	r.POST("/v1/image/upload", uploadImageHandler(c, srv))
 	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv, log))
-	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv))
+	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv, log))
 	r.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
 	r.PUT("/v1/image/transform", transformImageHandler(srv))
 	r.GET("/v1/image/ws", imageNotificationHandler(srv, log))
@@ -167,14 +167,14 @@ func getSingleImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.
 
 		reply := out.(*ImageContent)
 
-		done := false
+		sent := false
 		if err := sendImage(
 			ctx.Response(),
 			func() (*ImageContent, error) {
-				if done {
+				if sent {
 					return nil, nil
 				}
-				done = true
+				sent = true
 
 				return reply, nil
 			},
@@ -187,7 +187,7 @@ func getSingleImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.
 	}
 }
 
-func getPaginatedImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
+func getPaginatedImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
 		if err := checkAcceptHeader(ctx.Header()); err != nil {
 			return err
@@ -198,10 +198,25 @@ func getPaginatedImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error
 			return err
 		}
 
-		// TODO: call handler and return images
+		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
+			return srv.GetPaginatedImage(ctx, req.(*Pagination))
+		})
+		out, err := mHandler(ctx, &in)
+		if err != nil {
+			return err
+		}
 
-		_ = srv
-		return nil // TODO: implement
+		reply := out.(ImageStream)
+
+		if err := sendImage(
+			ctx.Response(),
+			reply.Next,
+			log,
+		); err != nil {
+			log.Warn("Failed to send images to client: %v", err)
+		}
+
+		return nil
 	}
 }
 
