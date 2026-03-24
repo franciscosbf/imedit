@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 )
 
 var (
-	imgUpload = &ImageUpload{
+	imgUploadNature = &ImageUpload{
 		Image: ImageContent{
 			Name: "nature.jpg",
 			Type: "jpeg",
@@ -37,6 +38,10 @@ var (
 	}
 	img = &Image{
 		ImageId: "abc",
+	}
+	pagination = &Pagination{
+		Page:  1,
+		Limit: 30,
 	}
 	imgTransformations = &ImageTransformations{
 		ImageId: "abc",
@@ -48,7 +53,7 @@ var (
 		},
 	}
 
-	imgMeta = &ImageMeta{
+	imgMetaNature = &ImageMeta{
 		ImageId: "abc",
 		Name:    "nature.jpg",
 		Type:    "jpg",
@@ -56,8 +61,12 @@ var (
 		Width:   50,
 		Height:  40,
 	}
-	imgContent = &ImageContent{
+	imgContentNature = &ImageContent{
 		Name: "nature.jpg",
+		Type: "jpeg",
+	}
+	imgContentTrain = &ImageContent{
+		Name: "train.jpg",
 		Type: "jpeg",
 	}
 	schedImgTransformation = &ScheduledImageTransformation{
@@ -88,33 +97,56 @@ func (m *MockedNotifier) Notify(ctx context.Context) (Event, error) {
 	return transformedImgEvent, nil
 }
 
+type MockedImageStream struct {
+	mock.Mock
+	nImages uint32
+}
+
+func (m *MockedImageStream) Next() (*ImageContent, error) {
+	if m.nImages == 0 {
+		return nil, nil
+	}
+
+	var imgContent *ImageContent
+	if m.nImages%2 == 0 {
+		imgContent = imgContentNature
+	} else {
+		imgContent = imgContentTrain
+	}
+
+	m.nImages--
+
+	return imgContent, nil
+}
+
 type MockedHttpServer struct {
 	mock.Mock
-	mNotifier *MockedNotifier
+	mNotifier  *MockedNotifier
+	mImgStream *MockedImageStream
 }
 
 func (m *MockedHttpServer) UploadImage(ctx context.Context, req *ImageUpload) (*ImageMeta, error) {
 	m.Called(nil, req)
 
-	return imgMeta, nil
+	return imgMetaNature, nil
 }
 
 func (m *MockedHttpServer) GetSingleImage(ctx context.Context, req *Image) (*ImageContent, error) {
 	m.Called(nil, req)
 
-	return imgContent, nil
+	return imgContentNature, nil
 }
 
 func (m *MockedHttpServer) GetPaginatedImage(ctx context.Context, req *Pagination) (ImageStream, error) {
 	m.Called(nil, req)
 
-	return nil, nil // TODO: implement
+	return m.mImgStream, nil
 }
 
 func (m *MockedHttpServer) GetImageMeta(ctx context.Context, req *Image) (*ImageMeta, error) {
 	m.Called(nil, req)
 
-	return imgMeta, nil
+	return imgMetaNature, nil
 }
 
 func (m *MockedHttpServer) TransformImage(ctx context.Context, req *ImageTransformations) (*ScheduledImageTransformation, error) {
@@ -138,13 +170,19 @@ type ImageHttpTestSuite struct {
 }
 
 func (s *ImageHttpTestSuite) SetupSuite() {
-	content, err := os.ReadFile("../../../test/image/nature.jpg")
+	contentNature, err := os.ReadFile("../../../test/image/nature.jpg")
 	if err != nil {
 		s.T().Fatalf("failed to retrieve test image nature.jpg: %v", err)
 	}
 
-	imgUpload.Image.Content = content
-	imgContent.Content = content
+	imgUploadNature.Image.Content = contentNature
+	imgContentNature.Content = contentNature
+
+	contentTrain, err := os.ReadFile("../../../test/image/train.jpg")
+	if err != nil {
+		s.T().Fatalf("failed to retrieve test image train.jpg: %v", err)
+	}
+	imgContentTrain.Content = contentTrain
 }
 
 func (s *ImageHttpTestSuite) BeforeTest(_, _ string) {
@@ -159,6 +197,8 @@ func (s *ImageHttpTestSuite) BeforeTest(_, _ string) {
 	srv := khttp.NewServer(opts...)
 	mHttpSrv := new(MockedHttpServer)
 	mHttpSrv.mNotifier = new(MockedNotifier)
+	mHttpSrv.mImgStream = new(MockedImageStream)
+	mHttpSrv.mImgStream.nImages = 2
 	logger := log.NewStdLogger(os.Stdout)
 	RegisterImageHTTPServer(&config, srv, mHttpSrv, logger)
 
@@ -246,8 +286,19 @@ func (s *ImageHttpTestSuite) waitAndAssertMock(call *mock.Call) {
 	s.mHttpSrv.AssertExpectations(s.T())
 }
 
+func (s *ImageHttpTestSuite) validateExpectedMimePart(mr *multipart.Reader, imgContent *ImageContent) {
+	part, err := mr.NextPart()
+	assert.NoError(s.T(), err, "expeting image part")
+	assert.Equal(s.T(), "image", part.FormName())
+	assert.Equal(s.T(), imgContent.Name, part.FileName())
+	assert.Equal(s.T(), "image/"+imgContent.Type, part.Header.Get("Content-Type"))
+	gotContent, err := io.ReadAll(part)
+	assert.NoError(s.T(), err, "failed to read file content")
+	assert.Equal(s.T(), imgContent.Content, gotContent)
+}
+
 func (s *ImageHttpTestSuite) TestUploadImage() {
-	call := s.mHttpSrv.On("UploadImage", nil, imgUpload).Return(imgMeta, nil).Once()
+	call := s.mHttpSrv.On("UploadImage", nil, imgUploadNature).Return(imgMetaNature, nil).Once()
 
 	buf := bytes.Buffer{}
 
@@ -257,13 +308,13 @@ func (s *ImageHttpTestSuite) TestUploadImage() {
 	header.Set("Content-Type", mw.FormDataContentType())
 
 	mHeaders := make(textproto.MIMEHeader)
-	mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgUpload.Image.Name))
-	mHeaders.Set("Content-Type", "image/"+imgUpload.Image.Type)
+	mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgUploadNature.Image.Name))
+	mHeaders.Set("Content-Type", "image/"+imgUploadNature.Image.Type)
 
 	mpw, err := mw.CreatePart(mHeaders)
 	assert.NoError(s.T(), err, "failed to create multipart section")
 
-	_, err = mpw.Write(imgUpload.Image.Content)
+	_, err = mpw.Write(imgUploadNature.Image.Content)
 	assert.NoError(s.T(), err, "failed to write file into multipart section")
 
 	assert.NoError(s.T(), mw.Close())
@@ -275,13 +326,13 @@ func (s *ImageHttpTestSuite) TestUploadImage() {
 
 	gotImgMeta := &ImageMeta{}
 	s.decodeJsonBody(resp.Body, gotImgMeta)
-	assert.Equal(s.T(), imgMeta, gotImgMeta)
+	assert.Equal(s.T(), imgMetaNature, gotImgMeta)
 
 	s.waitAndAssertMock(call)
 }
 
 func (s *ImageHttpTestSuite) TestGetSingleImage() {
-	call := s.mHttpSrv.On("GetSingleImage", nil, img).Return(imgContent, nil).Once()
+	call := s.mHttpSrv.On("GetSingleImage", nil, img).Return(imgContentNature, nil).Once()
 
 	header := http.Header{}
 	header.Add("Accept", "multipart/form-data")
@@ -296,26 +347,45 @@ func (s *ImageHttpTestSuite) TestGetSingleImage() {
 	assert.Contains(s.T(), params, "boundary", "missing boundary in Content-Type")
 
 	mr := multipart.NewReader(resp.Body, params["boundary"])
-	part, err := mr.NextPart()
-	assert.NoError(s.T(), err, "expeting image part")
-	assert.Equal(s.T(), "image", part.FormName())
-	assert.Equal(s.T(), imgContent.Name, part.FileName())
-	assert.Equal(s.T(), "image/"+imgContent.Type, part.Header.Get("Content-Type"))
-	gotContent, err := io.ReadAll(part)
-	assert.NoError(s.T(), err, "failed to read file content")
-	assert.Equal(s.T(), imgContent.Content, gotContent)
+	s.validateExpectedMimePart(mr, imgContentNature)
 	_, err = mr.NextPart()
-	assert.Error(s.T(), err, "expected to be no more parts")
+	assert.Equal(s.T(), io.EOF, err, "expected one part only")
 
 	s.waitAndAssertMock(call)
 }
 
 func (s *ImageHttpTestSuite) TestGetPaginatedImage() {
-	// TODO: implement
+	callEndpoint := s.mHttpSrv.On("GetPaginatedImage", nil, pagination).Return(s.mHttpSrv.mImgStream, nil).Once()
+	callPagination := s.mHttpSrv.mImgStream.On("Next").Return(imgContentNature, nil).Twice()
+
+	query := url.Values{}
+	query.Add("page", strconv.Itoa(int(pagination.Page)))
+	query.Add("limit", strconv.Itoa(int(pagination.Limit)))
+
+	header := http.Header{}
+	header.Add("Accept", "multipart/form-data")
+
+	resp, err := s.sendRawRequest("GET", "/v1/image/paginated", query, header, nil)
+	assert.NoError(s.T(), err, "failed to request paginated image")
+	assert.Equal(s.T(), resp.StatusCode, http.StatusOK)
+
+	mediaType, params, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	assert.NoError(s.T(), err, "failed to parse media type from Content-Type")
+	assert.Equal(s.T(), "multipart/form-data", mediaType)
+	assert.Contains(s.T(), params, "boundary", "missing boundary in Content-Type")
+
+	mr := multipart.NewReader(resp.Body, params["boundary"])
+	s.validateExpectedMimePart(mr, imgContentNature)
+	s.validateExpectedMimePart(mr, imgContentTrain)
+	_, err = mr.NextPart()
+	assert.Equal(s.T(), io.EOF, err, "expected two parts only")
+
+	s.waitAndAssertMock(callEndpoint)
+	s.waitAndAssertMock(callPagination)
 }
 
 func (s *ImageHttpTestSuite) TestGetImageMeta() {
-	call := s.mHttpSrv.On("GetImageMeta", nil, img).Return(imgMeta, nil).Once()
+	call := s.mHttpSrv.On("GetImageMeta", nil, img).Return(imgMetaNature, nil).Once()
 
 	resp, err := s.sendRawRequest("GET", "/v1/image/meta/abc", nil, nil, nil)
 	assert.NoError(s.T(), err, "failed to request get image")
@@ -324,7 +394,7 @@ func (s *ImageHttpTestSuite) TestGetImageMeta() {
 
 	gotImgMeta := &ImageMeta{}
 	s.decodeJsonBody(resp.Body, gotImgMeta)
-	assert.Equal(s.T(), imgMeta, gotImgMeta)
+	assert.Equal(s.T(), imgMetaNature, gotImgMeta)
 
 	s.waitAndAssertMock(call)
 }
