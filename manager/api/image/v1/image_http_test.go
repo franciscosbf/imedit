@@ -356,7 +356,7 @@ func (s *ImageHttpTestSuite) TestGetSingleImage() {
 
 func (s *ImageHttpTestSuite) TestGetPaginatedImage() {
 	callEndpoint := s.mHttpSrv.On("GetPaginatedImage", nil, pagination).Return(s.mHttpSrv.mImgStream, nil).Once()
-	callPagination := s.mHttpSrv.mImgStream.On("Next").Return(imgContentNature, nil).Twice()
+	callImageStream := s.mHttpSrv.mImgStream.On("Next").Return(imgContentNature, nil).Twice()
 
 	query := url.Values{}
 	query.Add("page", strconv.Itoa(int(pagination.Page)))
@@ -381,7 +381,7 @@ func (s *ImageHttpTestSuite) TestGetPaginatedImage() {
 	assert.Equal(s.T(), io.EOF, err, "expected two parts only")
 
 	s.waitAndAssertMock(callEndpoint)
-	s.waitAndAssertMock(callPagination)
+	s.waitAndAssertMock(callImageStream)
 }
 
 func (s *ImageHttpTestSuite) TestGetImageMeta() {
