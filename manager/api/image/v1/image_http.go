@@ -15,7 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/go-kratos/kratos/v2/errors"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 )
@@ -38,7 +38,7 @@ func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServe
 
 	r := s.Route("/")
 	r.POST("/v1/image/upload", uploadImageHandler(c, srv))
-	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv))
+	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv, log))
 	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv))
 	r.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
 	r.PUT("/v1/image/transform", transformImageHandler(srv))
@@ -56,12 +56,12 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		req := ctx.Request()
 
 		if err := req.ParseMultipartForm(int64(multiPartMaxMemory)); err != nil {
-			return errors.BadRequest("CODEC", err.Error())
+			return kerrors.BadRequest("CODEC", err.Error())
 		}
 
 		file, fHandler, err := req.FormFile("image")
 		if err != nil {
-			return errors.InternalServer("MULTIPART", err.Error())
+			return kerrors.InternalServer("MULTIPART", err.Error())
 		}
 		defer func() {
 			_ = file.Close()
@@ -71,7 +71,17 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		imgType := fHandler.Header.Get("Content-Type")
 		imgContent, err := io.ReadAll(file)
 		if err != nil {
-			return errors.InternalServer("MULTIPART_PARSER", err.Error())
+			return kerrors.InternalServer("MULTIPART_PARSER", err.Error())
+		}
+
+		if !strings.HasPrefix(imgType, "image/") {
+			return kerrors.BadRequest("CODEC", "expected image file type in Content-Type header value")
+		}
+
+		log.Info(http.DetectContentType(imgContent), imgType)
+
+		if http.DetectContentType(imgContent) != imgType {
+			return kerrors.BadRequest("CODEC", "unrecognized image")
 		}
 
 		imgType = strings.TrimLeft(imgType, "image/")
@@ -93,13 +103,53 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 	}
 }
 
-func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
+func checkAcceptHeader(header http.Header) error {
+	acceptValue := header.Get("Accept")
+	if mediaType, _, err := mime.ParseMediaType(acceptValue); err != nil {
+		return kerrors.BadRequest("CODEC", fmt.Sprintf("invalid Accept header value: %v", err))
+	} else if mediaType != "multipart/form-data" {
+		return kerrors.BadRequest("CODEC", "expected content type multipart/form-data in Accept header")
+	}
+
+	return nil
+}
+
+func writeImages(resp http.ResponseWriter, next func() (*ImageContent, error), log *log.Helper) (err error) {
+	mw := multipart.NewWriter(resp)
+
+	resp.Header().Set("Content-Type", mw.FormDataContentType())
+
+	for {
+		var imgContent *ImageContent
+		imgContent, err = next()
+		if imgContent == nil {
+			log.Warn("Failed to retrieve image: %v", err)
+
+			break
+		}
+
+		mHeaders := make(textproto.MIMEHeader)
+		mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgContent.Name))
+		mHeaders.Set("Content-Type", "image/"+imgContent.Type)
+
+		var mpw io.Writer
+		mpw, err = mw.CreatePart(mHeaders)
+		if err != nil {
+			return
+		}
+
+		if _, err = mpw.Write(imgContent.Content); err != nil {
+			return
+		}
+	}
+
+	return mw.Close()
+}
+
+func getSingleImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
-		acceptValue := ctx.Header().Get("Accept")
-		if mediaType, _, err := mime.ParseMediaType(acceptValue); err != nil {
-			return errors.BadRequest("CODEC", fmt.Sprintf("invalid Accept header value: %v", err))
-		} else if mediaType != "multipart/form-data" {
-			return errors.BadRequest("CODEC", "expected content type multipart/form-data in Accept header")
+		if err := checkAcceptHeader(ctx.Header()); err != nil {
+			return err
 		}
 
 		var in Image
@@ -117,26 +167,20 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 
 		reply := out.(*ImageContent)
 
-		rw := ctx.Response()
+		done := false
+		if err := writeImages(
+			ctx.Response(),
+			func() (*ImageContent, error) {
+				if done {
+					return nil, nil
+				}
+				done = true
 
-		mw := multipart.NewWriter(rw)
-
-		rw.Header().Set("Content-Type", mw.FormDataContentType())
-
-		mHeaders := make(textproto.MIMEHeader)
-		mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", reply.Name))
-		mHeaders.Set("Content-Type", "image/"+reply.Type)
-
-		mpw, err := mw.CreatePart(mHeaders)
-		if err != nil {
-			return errors.InternalServer("MULTIPART", err.Error())
-		}
-		if _, err := mpw.Write(reply.Content); err != nil {
-			return errors.InternalServer("MULTIPART", err.Error())
-		}
-
-		if err := mw.Close(); err != nil {
-			return errors.InternalServer("MULTIPART", err.Error())
+				return reply, nil
+			},
+			log,
+		); err != nil {
+			log.Warn("Failed to send image to client: %v", err)
 		}
 
 		return nil
@@ -145,12 +189,16 @@ func getSingleImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 
 func getPaginatedImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) error {
+		if err := checkAcceptHeader(ctx.Header()); err != nil {
+			return err
+		}
+
 		var in Pagination
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 
-		// TODO: call handler and return images (should I do this in a stream fashion)
+		// TODO: call handler and return images
 
 		_ = srv
 		return nil // TODO: implement
@@ -212,10 +260,7 @@ func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
 	return wsjson.Write(ctx, nc.Conn, retEvent)
 }
 
-func imageNotificationHandler(
-	srv ImageHTTPServer,
-	log *log.Helper,
-) func(ctx khttp.Context) error {
+func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
 	return func(kctx khttp.Context) (_ error) {
 		conn, err := websocket.Accept(kctx.Response(), kctx.Request(), nil)
 		if err != nil {

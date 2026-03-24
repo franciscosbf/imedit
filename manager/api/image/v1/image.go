@@ -9,7 +9,7 @@ type ImageContent struct {
 }
 
 type ImageStream interface {
-	Next() (ImageContent, error)
+	Next() (*ImageContent, error)
 }
 
 type ImageUpload struct {

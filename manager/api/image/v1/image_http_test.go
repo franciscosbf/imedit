@@ -31,9 +31,8 @@ import (
 var (
 	imgUpload = &ImageUpload{
 		Image: ImageContent{
-			Name:    "img.png",
-			Type:    "png",
-			Content: []byte("abcd"),
+			Name: "nature.jpg",
+			Type: "jpeg",
 		},
 	}
 	img = &Image{
@@ -51,16 +50,15 @@ var (
 
 	imgMeta = &ImageMeta{
 		ImageId: "abc",
-		Name:    "img.png",
-		Type:    "png",
+		Name:    "nature.jpg",
+		Type:    "jpg",
 		Size:    4,
 		Width:   50,
 		Height:  40,
 	}
 	imgContent = &ImageContent{
-		Name:    "img.png",
-		Type:    "png",
-		Content: []byte("abcd"),
+		Name: "nature.jpg",
+		Type: "jpeg",
 	}
 	schedImgTransformation = &ScheduledImageTransformation{
 		TransformationId: "def",
@@ -137,6 +135,16 @@ type ImageHttpTestSuite struct {
 	srv      *khttp.Server
 	mHttpSrv *MockedHttpServer
 	client   *khttp.Client
+}
+
+func (s *ImageHttpTestSuite) SetupSuite() {
+	content, err := os.ReadFile("../../../test/image/nature.jpg")
+	if err != nil {
+		s.T().Fatalf("failed to retrieve test image nature.jpg: %v", err)
+	}
+
+	imgUpload.Image.Content = content
+	imgContent.Content = content
 }
 
 func (s *ImageHttpTestSuite) BeforeTest(_, _ string) {
@@ -250,7 +258,7 @@ func (s *ImageHttpTestSuite) TestUploadImage() {
 
 	mHeaders := make(textproto.MIMEHeader)
 	mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgUpload.Image.Name))
-	mHeaders.Set("Content-Type", imgUpload.Image.Type)
+	mHeaders.Set("Content-Type", "image/"+imgUpload.Image.Type)
 
 	mpw, err := mw.CreatePart(mHeaders)
 	assert.NoError(s.T(), err, "failed to create multipart section")
@@ -291,8 +299,8 @@ func (s *ImageHttpTestSuite) TestGetSingleImage() {
 	part, err := mr.NextPart()
 	assert.NoError(s.T(), err, "expeting image part")
 	assert.Equal(s.T(), "image", part.FormName())
-	assert.Equal(s.T(), "img.png", part.FileName())
-	assert.Equal(s.T(), "image/png", part.Header.Get("Content-Type"))
+	assert.Equal(s.T(), imgContent.Name, part.FileName())
+	assert.Equal(s.T(), "image/"+imgContent.Type, part.Header.Get("Content-Type"))
 	gotContent, err := io.ReadAll(part)
 	assert.NoError(s.T(), err, "failed to read file content")
 	assert.Equal(s.T(), imgContent.Content, gotContent)
