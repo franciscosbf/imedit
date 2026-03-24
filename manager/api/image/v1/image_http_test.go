@@ -69,12 +69,12 @@ var (
 	}
 )
 
-type MocketNotifier struct {
+type MockedNotifier struct {
 	mock.Mock
 	called bool
 }
 
-func (m *MocketNotifier) Notify(ctx context.Context) (Event, error) {
+func (m *MockedNotifier) Notify(ctx context.Context) (Event, error) {
 	if m.called {
 		<-ctx.Done()
 
@@ -90,7 +90,7 @@ func (m *MocketNotifier) Notify(ctx context.Context) (Event, error) {
 
 type MockedHttpServer struct {
 	mock.Mock
-	mNotifier *MocketNotifier
+	mNotifier *MockedNotifier
 }
 
 func (m *MockedHttpServer) UploadImage(ctx context.Context, req *ImageUpload) (*ImageMeta, error) {
@@ -158,7 +158,7 @@ func (s *ImageHttpTestSuite) BeforeTest(_, _ string) {
 	}
 	srv := khttp.NewServer(opts...)
 	mHttpSrv := new(MockedHttpServer)
-	mHttpSrv.mNotifier = new(MocketNotifier)
+	mHttpSrv.mNotifier = new(MockedNotifier)
 	logger := log.NewStdLogger(os.Stdout)
 	RegisterImageHTTPServer(&config, srv, mHttpSrv, logger)
 
