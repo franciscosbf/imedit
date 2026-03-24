@@ -114,7 +114,7 @@ func checkAcceptHeader(header http.Header) error {
 	return nil
 }
 
-func writeImages(resp http.ResponseWriter, next func() (*ImageContent, error), log *log.Helper) (err error) {
+func sendImage(resp http.ResponseWriter, next func() (*ImageContent, error), log *log.Helper) (err error) {
 	mw := multipart.NewWriter(resp)
 
 	resp.Header().Set("Content-Type", mw.FormDataContentType())
@@ -168,7 +168,7 @@ func getSingleImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.
 		reply := out.(*ImageContent)
 
 		done := false
-		if err := writeImages(
+		if err := sendImage(
 			ctx.Response(),
 			func() (*ImageContent, error) {
 				if done {
