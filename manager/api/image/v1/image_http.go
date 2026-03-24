@@ -123,6 +123,8 @@ func sendImage(resp http.ResponseWriter, next func() (*ImageContent, error), log
 		var imgContent *ImageContent
 		imgContent, err = next()
 		if imgContent == nil {
+			break
+		} else if err != nil {
 			log.Warn("Failed to retrieve image: %v", err)
 
 			break
