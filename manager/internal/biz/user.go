@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"sync"
 
 	uv1 "manager/api/user/v1"
 	"manager/internal/auth"
@@ -69,16 +68,6 @@ func (uu *UserUsecase) Authenticate(ctx context.Context, u *User) (*AuthToken, e
 }
 
 func (uu *UserUsecase) UpdatePassword(ctx context.Context, pwdUp *PasswordUpdate) error {
-	var (
-		wg          sync.WaitGroup
-		newPassword string
-		err         error
-	)
-
-	wg.Go(func() {
-		newPassword, err = uu.pwdGen.Hash(pwdUp.NewPassword)
-	})
-
 	return uu.repo.UpdateUserPassword(
 		ctx,
 		pwdUp.Username,
@@ -86,9 +75,7 @@ func (uu *UserUsecase) UpdatePassword(ctx context.Context, pwdUp *PasswordUpdate
 			return uu.pwdGen.Equivalent(password, pwdUp.CurrentPassword)
 		},
 		func() (string, error) {
-			wg.Wait()
-
-			return newPassword, err
+			return uu.pwdGen.Hash(pwdUp.NewPassword)
 		})
 }
 
