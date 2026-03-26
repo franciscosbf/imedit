@@ -39,7 +39,7 @@ func wireApp(confServer *conf.Server, confAuth *conf.Auth, confData *conf.Data, 
 	userService := service.NewUserService(userUsecase, logger)
 	imageService := service.NewImageService(logger)
 	httpServer := server.NewHTTPServer(confServer, jwtAuthenticator, userService, imageService, logger)
-	app := newApp(logger, httpServer)
+	app := newApp(logger, httpServer, confServer)
 	return app, func() {
 		cleanup()
 	}, nil

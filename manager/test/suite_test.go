@@ -165,8 +165,7 @@ func (s *IntegrationSuite) SetupSuite() {
 
 	config := conf.Bootstrap{
 		Server: &conf.Server{Http: &conf.Server_HTTP{
-			Addr:    "0.0.0.0:0",
-			Timeout: durationpb.New(time.Second),
+			Addr: "0.0.0.0:0",
 		}},
 		Auth: &conf.Auth{
 			Algorithm:      "ES256",

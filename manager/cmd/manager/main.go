@@ -32,8 +32,8 @@ func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
 }
 
-func newApp(logger log.Logger, hs *http.Server) *kratos.App {
-	return kratos.New(
+func newApp(logger log.Logger, hs *http.Server, c *conf.Server) *kratos.App {
+	opts := []kratos.Option{
 		kratos.ID(id),
 		kratos.Name(Name),
 		kratos.Version(Version),
@@ -42,7 +42,13 @@ func newApp(logger log.Logger, hs *http.Server) *kratos.App {
 		kratos.Server(
 			hs,
 		),
-	)
+	}
+
+	if c.ShutdownTimeout != nil {
+		opts = append(opts, kratos.StopTimeout(c.ShutdownTimeout.AsDuration()))
+	}
+
+	return kratos.New(opts...)
 }
 
 func main() {

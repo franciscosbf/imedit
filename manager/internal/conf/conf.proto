@@ -15,11 +15,12 @@ message Bootstrap {
 message Server {
   message HTTP {
     string addr = 1;
-    google.protobuf.Duration timeout = 2;
+    google.protobuf.Duration request_timeout = 2;
     uint32 max_image_size = 3;
   }
 
   HTTP http = 1;
+  google.protobuf.Duration shutdown_timeout = 2;
 }
 
 message Auth {

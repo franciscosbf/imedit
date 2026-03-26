@@ -31,8 +31,8 @@ func NewHTTPServer(c *conf.Server, jwtAuth auth.JwtAuthenticator, user *service.
 	if c.Http.Addr != "" {
 		opts = append(opts, http.Address(c.Http.Addr))
 	}
-	if c.Http.Timeout != nil {
-		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
+	if c.Http.RequestTimeout != nil {
+		opts = append(opts, http.Timeout(c.Http.RequestTimeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
 	uv1.RegisterUserHTTPServer(srv, user)
