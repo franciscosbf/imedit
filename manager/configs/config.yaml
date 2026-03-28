@@ -1,12 +1,18 @@
 server:
   http:
-    addr: 0.0.0.0:8000
-    timeout: 1s
+    endpoint: 0.0.0.0:8000
 data:
   database:
     driver: mysql
-    source: root:root@tcp(127.0.0.1:3306)/test?parseTime=True&loc=Local
+    source: root:password@tcp(127.0.0.1:3306)/test?parseTime=True&loc=Local
   redis:
-    addr: 127.0.0.1:6379
-    read_timeout: 0.2s
-    write_timeout: 0.2s
+    endpoint: 127.0.0.1:6379
+    dial_timeout: 1s
+    read_timeout: 1s
+    write_timeout: 1s
+  minio:
+    endpoint: 127.0.0.1:9000
+    access_key: user
+    secret_key: password
+  rabbitmq:
+    source: amqp://user:password@localhost:5672/

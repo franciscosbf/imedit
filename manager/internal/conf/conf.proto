@@ -14,7 +14,7 @@ message Bootstrap {
 
 message Server {
   message HTTP {
-    string addr = 1;
+    string endpoint = 1;
     google.protobuf.Duration request_timeout = 2;
     uint32 max_image_size = 3;
   }
@@ -38,13 +38,25 @@ message Data {
   }
 
   message Redis {
-    string addr = 1;
+    string endpoint = 1;
     string password = 2;
     google.protobuf.Duration dial_timeout = 3;
     google.protobuf.Duration read_timeout = 4;
     google.protobuf.Duration write_timeout = 5;
   }
 
+  message MinIO {
+    string endpoint = 1;
+    string access_key = 2;
+    string secret_key = 3;
+  }
+
+  message RabbitMQ {
+    string source = 1;
+  }
+
   Database database = 1;
   Redis redis = 2;
+  MinIO minio = 3;
+  RabbitMQ rabbitmq = 4;
 }

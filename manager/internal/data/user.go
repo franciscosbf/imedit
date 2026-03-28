@@ -19,7 +19,7 @@ type userRepo struct {
 }
 
 func (ur *userRepo) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
-	tx, err := ur.data.db.Tx(ctx)
+	tx, err := ur.data.edb.Tx(ctx)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func (ur *userRepo) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error
 }
 
 func (ur *userRepo) CreateUser(ctx context.Context, u *biz.User) error {
-	_, err := ur.data.db.User.
+	_, err := ur.data.edb.User.
 		Create().
 		SetUsername(u.Username).
 		SetPassword(u.Password).
@@ -52,7 +52,7 @@ func (ur *userRepo) CreateUser(ctx context.Context, u *biz.User) error {
 }
 
 func (ur *userRepo) GetUserPassword(ctx context.Context, username string) (string, error) {
-	u, err := ur.data.db.User.
+	u, err := ur.data.edb.User.
 		Query().
 		Where(user.Username(username)).
 		Select(user.FieldPassword).

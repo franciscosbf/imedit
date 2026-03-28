@@ -12,6 +12,9 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/wire"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	amqp "github.com/rabbitmq/amqp091-go"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -27,8 +30,10 @@ func getSupportedDbDrivers() []string {
 
 // Data .
 type Data struct {
-	db  *ent.Client
+	edb *ent.Client
 	rdb *redis.Client
+	mdb *minio.Client
+	rmq *amqp.Connection
 }
 
 // NewData .
@@ -43,11 +48,11 @@ func NewData(c *conf.Data) (*Data, func(), error) {
 
 	db, err := ent.Open(driver, c.Database.Source)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open database connection: %v", err)
+		return nil, nil, fmt.Errorf("failed to open %s database connection: %v", driver, err)
 	}
 
 	redisOpts := redis.Options{
-		Addr:         c.Redis.Addr,
+		Addr:         c.Redis.Endpoint,
 		Password:     c.Redis.Password,
 		DialTimeout:  c.Redis.DialTimeout.AsDuration(),
 		WriteTimeout: c.Redis.WriteTimeout.AsDuration(),
@@ -58,16 +63,37 @@ func NewData(c *conf.Data) (*Data, func(), error) {
 		return nil, nil, fmt.Errorf("failed to ping Redis server: %v", err)
 	}
 
-	data := &Data{db, rdb}
+	minioOpts := minio.Options{
+		Creds: credentials.NewStaticV4(c.Minio.AccessKey, c.Minio.SecretKey, ""),
+	}
+	mdb, err := minio.New(c.Minio.Endpoint, &minioOpts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open MinIO database connection: %v", err)
+	}
+	if _, err := mdb.GetCreds(); err != nil {
+		return nil, nil, fmt.Errorf(
+			"failed test connection to MinIO database by requesting credentials: %v", err)
+	}
+
+	rmq, err := amqp.Dial(c.Rabbitmq.Source)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open RabbitMQ connection: %v", err)
+	}
+
+	data := &Data{db, rdb, mdb, rmq}
 
 	cleanup := func() {
 		log.Info("message", "closing the data resources")
 
-		if err := data.db.Close(); err != nil {
+		if err := data.edb.Close(); err != nil {
 			log.Error(err)
 		}
 
 		if err := data.rdb.Close(); err != nil {
+			log.Error(err)
+		}
+
+		if err := data.rmq.Close(); err != nil {
 			log.Error(err)
 		}
 	}

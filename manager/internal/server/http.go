@@ -28,8 +28,8 @@ func NewHTTPServer(c *conf.Server, jwtAuth auth.JwtAuthenticator, user *service.
 			iv1.ImageValidate(),
 		),
 	}
-	if c.Http.Addr != "" {
-		opts = append(opts, http.Address(c.Http.Addr))
+	if c.Http.Endpoint != "" {
+		opts = append(opts, http.Address(c.Http.Endpoint))
 	}
 	if c.Http.RequestTimeout != nil {
 		opts = append(opts, http.Timeout(c.Http.RequestTimeout.AsDuration()))

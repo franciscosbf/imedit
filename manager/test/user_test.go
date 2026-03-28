@@ -24,7 +24,7 @@ func (s *IntegrationSuite) TestUserCreation() {
 		"failed to request user registration",
 	)
 
-	u, err := s.db.User.
+	u, err := s.edb.User.
 		Query().
 		Where(user.Username("username")).
 		Only(context.Background())
@@ -86,7 +86,7 @@ func (s *IntegrationSuite) TestUserPasswordChanged() {
 		"failed to request user password change",
 	)
 
-	u, err := s.db.User.
+	u, err := s.edb.User.
 		Query().
 		Where(user.Username("username")).
 		Only(context.Background())
