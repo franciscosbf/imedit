@@ -43,19 +43,24 @@ type testUser struct {
 
 type IntegrationSuite struct {
 	suite.Suite
-	cdb      *testcontainers.DockerContainer
-	crdb     *testcontainers.DockerContainer
-	cmio     *testcontainers.DockerContainer
-	crmq     *testcontainers.DockerContainer
-	app      *kratos.App
-	edb      *ent.Client
-	rdb      *redis.Client
-	mdb      *minio.Client
-	rmq      *amqp.Connection
-	jwtAuth  auth.JwtAuthenticator
-	pwdGen   auth.PasswordGenerator
-	endpoint string
-	client   *khttp.Client
+	cdb          *testcontainers.DockerContainer
+	crdb         *testcontainers.DockerContainer
+	cmio         *testcontainers.DockerContainer
+	crmq         *testcontainers.DockerContainer
+	crdbEndpoint string
+	cdbEndpoint  string
+	cmioEndpoint string
+	crmqEndpoint string
+	config       *conf.Bootstrap
+	app          *kratos.App
+	edb          *ent.Client
+	rdb          *redis.Client
+	mdb          *minio.Client
+	rmq          *amqp.Connection
+	jwtAuth      auth.JwtAuthenticator
+	pwdGen       auth.PasswordGenerator
+	appEndpoint  string
+	client       *khttp.Client
 }
 
 func (s *IntegrationSuite) sendJsonRequest(method, path string, args, reply any, opts ...khttp.CallOption) error {
@@ -70,7 +75,7 @@ func (s *IntegrationSuite) sendRawRequest(
 ) (*http.Response, error) {
 	u := url.URL{
 		Scheme: "http",
-		Host:   s.endpoint,
+		Host:   s.appEndpoint,
 		Path:   path,
 	}
 	q := u.Query()
@@ -120,10 +125,10 @@ func (s *IntegrationSuite) loginUser(tu *testUser) string {
 	return "Bearer " + response.Token
 }
 
-func (s *IntegrationSuite) runReddisContainer() (container *testcontainers.DockerContainer, endpoint string) {
+func (s *IntegrationSuite) runReddisContainer() {
 	var err error
 
-	container, err = testcontainers.Run(
+	s.crdb, err = testcontainers.Run(
 		context.Background(), "redis:8.6.1",
 		testcontainers.WithCmd("redis-server", "--requirepass", "password"),
 		testcontainers.WithExposedPorts("6379/tcp"),
@@ -133,16 +138,14 @@ func (s *IntegrationSuite) runReddisContainer() (container *testcontainers.Docke
 		),
 	)
 	assert.NoError(s.T(), err, "failed to launch Redis container")
-	endpoint, err = container.Endpoint(context.Background(), "")
+	s.crdbEndpoint, err = s.crdb.Endpoint(context.Background(), "")
 	assert.NoError(s.T(), err, "failed to retrieve Redis container endpoint")
-
-	return
 }
 
-func (s *IntegrationSuite) runMySQLContainer() (container *testcontainers.DockerContainer, endpoint string) {
+func (s *IntegrationSuite) runMySQLContainer() {
 	var err error
 
-	container, err = testcontainers.Run(
+	s.cdb, err = testcontainers.Run(
 		context.Background(), "mysql:8.4.8",
 		testcontainers.WithEnv(map[string]string{
 			"MYSQL_ROOT_PASSWORD": "password",
@@ -155,13 +158,11 @@ func (s *IntegrationSuite) runMySQLContainer() (container *testcontainers.Docker
 		),
 	)
 	assert.NoError(s.T(), err, "failed to launch MySQL database container")
-	endpoint, err = container.Endpoint(context.Background(), "")
+	s.cdbEndpoint, err = s.cdb.Endpoint(context.Background(), "")
 	assert.NoError(s.T(), err, "failed to retrieve MySQL container endpoint")
-
-	return
 }
 
-func (s *IntegrationSuite) runMinIOContainer() (container *testcontainers.DockerContainer, endpoint string) {
+func (s *IntegrationSuite) runMinIOContainer() {
 	var (
 		license string
 		err     error
@@ -169,7 +170,7 @@ func (s *IntegrationSuite) runMinIOContainer() (container *testcontainers.Docker
 
 	license, err = filepath.Abs("./minio/minio.license/")
 	assert.NoError(s.T(), err, "failed to obtain absolute path for ./minio/minio.license")
-	container, err = testcontainers.Run(
+	s.cmio, err = testcontainers.Run(
 		context.Background(), "quay.io/minio/aistor/minio:RELEASE.2026-03-26T21-24-40Z",
 		testcontainers.WithCmd("minio", "server", "/mnt/data", "--license", "/minio.license"),
 		testcontainers.WithEnv(map[string]string{
@@ -187,16 +188,14 @@ func (s *IntegrationSuite) runMinIOContainer() (container *testcontainers.Docker
 		),
 	)
 	assert.NoError(s.T(), err, "failed to launch MinIO AIStor database container")
-	endpoint, err = container.Endpoint(context.Background(), "")
+	s.cmioEndpoint, err = s.cmio.Endpoint(context.Background(), "")
 	assert.NoError(s.T(), err, "failed to retrieve MinIO AIStor database container endpoint")
-
-	return
 }
 
-func (s *IntegrationSuite) runRabbitMQContainer() (container *testcontainers.DockerContainer, endpoint string) {
+func (s *IntegrationSuite) runRabbitMQContainer() {
 	var err error
 
-	container, err = testcontainers.Run(
+	s.crmq, err = testcontainers.Run(
 		context.Background(), "rabbitmq:4.2.5-management",
 		testcontainers.WithEnv(map[string]string{
 			"RABBITMQ_DEFAULT_USER": "user",
@@ -209,51 +208,27 @@ func (s *IntegrationSuite) runRabbitMQContainer() (container *testcontainers.Doc
 		),
 	)
 	assert.NoError(s.T(), err, "failed to launch RabbitMQ container")
-	endpoint, err = container.PortEndpoint(context.Background(), nat.Port("5672"), "")
+	s.crmqEndpoint, err = s.crmq.PortEndpoint(context.Background(), nat.Port("5672"), "")
 	assert.NoError(s.T(), err, "failed to retrieve RabbitMQ container endpoint")
-
-	return
 }
 
-func (s *IntegrationSuite) SetupSuite() {
-	var (
-		crdb         *testcontainers.DockerContainer
-		crdbEndpoint string
-		cdb          *testcontainers.DockerContainer
-		cdbEndpoint  string
-		cmio         *testcontainers.DockerContainer
-		cmioEndpoint string
-		crmq         *testcontainers.DockerContainer
-		crmqEndpoint string
-		jwtAuth      auth.JwtAuthenticator
-		pwdGen       auth.PasswordGenerator
-	)
+func (s *IntegrationSuite) teardownContainers() {
+	if s.crdb != nil {
+		testcontainers.CleanupContainer(s.T(), s.crdb)
+	}
+	if s.cdb != nil {
+		testcontainers.CleanupContainer(s.T(), s.cdb)
+	}
+	if s.cmio != nil {
+		testcontainers.CleanupContainer(s.T(), s.cmio)
+	}
+	if s.crmq != nil {
+		testcontainers.CleanupContainer(s.T(), s.crmq)
+	}
+}
 
-	go func() {
-		if !s.T().Failed() {
-			return
-		}
-
-		if crdb != nil {
-			testcontainers.CleanupContainer(s.T(), crdb)
-		}
-		if cdb != nil {
-			testcontainers.CleanupContainer(s.T(), cdb)
-		}
-		if cmio != nil {
-			testcontainers.CleanupContainer(s.T(), cmio)
-		}
-		if crmq != nil {
-			testcontainers.CleanupContainer(s.T(), crmq)
-		}
-	}()
-
-	crdb, crdbEndpoint = s.runReddisContainer()
-	cdb, cdbEndpoint = s.runMySQLContainer()
-	cmio, cmioEndpoint = s.runMinIOContainer()
-	crmq, crmqEndpoint = s.runRabbitMQContainer()
-
-	config := conf.Bootstrap{
+func (s *IntegrationSuite) setupAppConfig() {
+	s.config = &conf.Bootstrap{
 		Server: &conf.Server{Http: &conf.Server_HTTP{
 			Endpoint:       "0.0.0.0:0",
 			RequestTimeout: durationpb.New(5 * time.Second),
@@ -268,97 +243,133 @@ func (s *IntegrationSuite) SetupSuite() {
 		Data: &conf.Data{
 			Database: &conf.Data_Database{
 				Driver: "mysql",
-				Source: fmt.Sprintf("root:password@tcp(%s)/test", cdbEndpoint),
+				Source: fmt.Sprintf("root:password@tcp(%s)/test", s.cdbEndpoint),
 			},
 			Redis: &conf.Data_Redis{
-				Endpoint:     crdbEndpoint,
+				Endpoint:     s.crdbEndpoint,
 				Password:     "password",
 				DialTimeout:  durationpb.New(4 * time.Second),
 				ReadTimeout:  durationpb.New(2 * time.Second),
 				WriteTimeout: durationpb.New(2 * time.Second),
 			},
 			Minio: &conf.Data_MinIO{
-				Endpoint:  cmioEndpoint,
+				Endpoint:  s.cmioEndpoint,
 				AccessKey: "user",
 				SecretKey: "password",
 			},
 			Rabbitmq: &conf.Data_RabbitMQ{
-				Source: fmt.Sprintf("amqp://user:password@%s/", crmqEndpoint),
+				Source: fmt.Sprintf("amqp://user:password@%s/", s.crmqEndpoint),
 			},
 		},
 	}
+}
 
-	jwtAuth, err := auth.NewJwtAuthenticator(config.Auth)
+func (s *IntegrationSuite) setupAppAndRun() {
+	var err error
+
+	s.jwtAuth, err = auth.NewJwtAuthenticator(s.config.Auth)
 	assert.NoError(s.T(), err, "failed to create JWT authenticator")
-	pwdGen = auth.NewPasswordGenerator()
+	s.pwdGen = auth.NewPasswordGenerator()
 	logger := log.NewStdLogger(os.Stdout)
-	ddata, _, err := data.NewData(config.Data)
+	ddata, _, err := data.NewData(s.config.Data)
 	assert.NoError(s.T(), err, "failed to create data")
 	repo := data.NewUserRepo(ddata, logger)
-	uc := biz.NewUserUsecase(jwtAuth, pwdGen, repo)
+	uc := biz.NewUserUsecase(s.jwtAuth, s.pwdGen, repo)
 	user := service.NewUserService(uc, logger)
 	image := service.NewImageService(logger)
-	server := server.NewHTTPServer(config.Server, jwtAuth, user, image, logger)
-	app := kratos.New(kratos.Server(server))
-
-	edb, err := ent.Open(config.Data.Database.Driver, config.Data.Database.Source)
-	assert.NoError(s.T(), err, "failed to open MySQl database connection")
-
-	assert.NoError(s.T(), edb.Schema.Create(context.Background()),
-		"failed to create schema for %v database")
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     config.Data.Redis.Endpoint,
-		Password: config.Data.Redis.Password,
-	})
-
-	mdb, err := minio.New(config.Data.Minio.Endpoint, &minio.Options{
-		Creds: credentials.NewStaticV4(config.Data.Minio.AccessKey, config.Data.Minio.SecretKey, ""),
-	})
-	assert.NoError(s.T(), err, "failed to open MinIO AIStor database connection")
-	_, err = mdb.GetCreds()
-	assert.NoError(s.T(), err, "failed test connection by requesting credentials for MinIO AIStor database")
-
-	rmq, err := amqp.Dial(config.Data.Rabbitmq.Source)
-	assert.NoError(s.T(), err, "failed to open RabbitMQ connection")
+	server := server.NewHTTPServer(s.config.Server, s.jwtAuth, user, image, logger)
+	s.app = kratos.New(kratos.Server(server))
 
 	u, err := server.Endpoint()
 	assert.NoError(s.T(), err, "failed to retrieve http server endpoint")
-	endpoint := u.Host
-	client, err := khttp.NewClient(
+	s.appEndpoint = u.Host
+
+	go func() { _ = s.app.Run() }()
+}
+
+func (s *IntegrationSuite) teardownApp() {
+	assert.NoError(s.T(), s.app.Stop(), "failed to stop app")
+}
+
+func (s *IntegrationSuite) setupMySQLConnection() {
+	var err error
+
+	s.edb, err = ent.Open(s.config.Data.Database.Driver, s.config.Data.Database.Source)
+	assert.NoError(s.T(), err, "failed to open MySQl database connection")
+
+	assert.NoError(s.T(), s.edb.Schema.Create(context.Background()),
+		"failed to create schema for %v database")
+}
+
+func (s *IntegrationSuite) setupRedisConnection() {
+	s.rdb = redis.NewClient(&redis.Options{
+		Addr:     s.config.Data.Redis.Endpoint,
+		Password: s.config.Data.Redis.Password,
+	})
+}
+
+func (s *IntegrationSuite) setupMinIOConnection() {
+	var err error
+
+	s.mdb, err = minio.New(s.config.Data.Minio.Endpoint, &minio.Options{
+		Creds: credentials.NewStaticV4(s.config.Data.Minio.AccessKey, s.config.Data.Minio.SecretKey, ""),
+	})
+	assert.NoError(s.T(), err, "failed to open MinIO AIStor database connection")
+}
+
+func (s *IntegrationSuite) setupRabbitMQConnection() {
+	var err error
+
+	s.rmq, err = amqp.Dial(s.config.Data.Rabbitmq.Source)
+	assert.NoError(s.T(), err, "failed to open RabbitMQ connection")
+}
+
+func (s *IntegrationSuite) setupAppConnection() {
+	var err error
+
+	s.client, err = khttp.NewClient(
 		context.Background(),
-		khttp.WithEndpoint(endpoint))
+		khttp.WithEndpoint(s.appEndpoint))
 	assert.NoError(s.T(), err, "failed to create http client")
+}
 
-	go func() { _ = app.Run() }()
+func (s *IntegrationSuite) teardownConnections() {
+	assert.NoError(s.T(), s.rdb.Close(), "failed to close Redis client")
+	assert.NoError(s.T(), s.edb.Close(), "failed to close database client")
+	assert.NoError(s.T(), s.rmq.Close(), "failed to close RabbitMQ client")
+	assert.NoError(s.T(), s.client.Close(), "failed to close app client")
+}
 
-	s.crdb = crdb
-	s.cdb = cdb
-	s.cmio = cmio
-	s.edb = edb
-	s.rdb = rdb
-	s.mdb = mdb
-	s.rmq = rmq
-	s.app = app
-	s.jwtAuth = jwtAuth
-	s.pwdGen = pwdGen
-	s.endpoint = endpoint
-	s.client = client
+func (s *IntegrationSuite) SetupSuite() {
+	go func() {
+		if !s.T().Failed() {
+			return
+		}
+
+		s.teardownContainers()
+	}()
+
+	s.runReddisContainer()
+	s.runMySQLContainer()
+	s.runMinIOContainer()
+	s.runRabbitMQContainer()
+
+	s.setupAppConfig()
+	s.setupAppAndRun()
+
+	s.setupMySQLConnection()
+	s.setupRedisConnection()
+	s.setupMinIOConnection()
+	s.setupRabbitMQConnection()
+	s.setupAppConnection()
 }
 
 func (s *IntegrationSuite) TeardownSuite() {
-	assert.NoError(s.T(), s.app.Stop(), "failed to stop app")
+	s.teardownApp()
 
-	assert.NoError(s.T(), s.rdb.Close(), "failed to close Redis client")
+	s.teardownConnections()
 
-	assert.NoError(s.T(), s.edb.Close(), "failed to close database client")
-
-	assert.NoError(s.T(), s.rmq.Close(), "failed to close RabbitMQ client")
-
-	testcontainers.CleanupContainer(s.T(), s.crdb)
-	testcontainers.CleanupContainer(s.T(), s.cdb)
-	testcontainers.CleanupContainer(s.T(), s.cmio)
-	testcontainers.CleanupContainer(s.T(), s.crmq)
+	s.teardownContainers()
 }
 
 func (s *IntegrationSuite) AfterTest(_, _ string) {
