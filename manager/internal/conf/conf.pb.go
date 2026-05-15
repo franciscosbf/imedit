@@ -216,6 +216,8 @@ type Data struct {
 	Redis         *Data_Redis            `protobuf:"bytes,2,opt,name=redis,proto3" json:"redis,omitempty"`
 	Minio         *Data_MinIO            `protobuf:"bytes,3,opt,name=minio,proto3" json:"minio,omitempty"`
 	Rabbitmq      *Data_RabbitMQ         `protobuf:"bytes,4,opt,name=rabbitmq,proto3" json:"rabbitmq,omitempty"`
+	Cache         *Data_Cache            `protobuf:"bytes,5,opt,name=cache,proto3" json:"cache,omitempty"`
+	Event         *Data_Event            `protobuf:"bytes,6,opt,name=event,proto3" json:"event,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -274,6 +276,20 @@ func (x *Data) GetMinio() *Data_MinIO {
 func (x *Data) GetRabbitmq() *Data_RabbitMQ {
 	if x != nil {
 		return x.Rabbitmq
+	}
+	return nil
+}
+
+func (x *Data) GetCache() *Data_Cache {
+	if x != nil {
+		return x.Cache
+	}
+	return nil
+}
+
+func (x *Data) GetEvent() *Data_Event {
+	if x != nil {
+		return x.Event
 	}
 	return nil
 }
@@ -528,7 +544,10 @@ func (x *Data_MinIO) GetSecretKey() string {
 
 type Data_RabbitMQ struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	Connections   uint32                 `protobuf:"varint,2,opt,name=connections,proto3" json:"connections,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -563,11 +582,120 @@ func (*Data_RabbitMQ) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{3, 3}
 }
 
-func (x *Data_RabbitMQ) GetSource() string {
+func (x *Data_RabbitMQ) GetEndpoint() string {
 	if x != nil {
-		return x.Source
+		return x.Endpoint
 	}
 	return ""
+}
+
+func (x *Data_RabbitMQ) GetConnections() uint32 {
+	if x != nil {
+		return x.Connections
+	}
+	return 0
+}
+
+func (x *Data_RabbitMQ) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *Data_RabbitMQ) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type Data_Cache struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EvictionTime  *durationpb.Duration   `protobuf:"bytes,1,opt,name=eviction_time,json=evictionTime,proto3" json:"eviction_time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Data_Cache) Reset() {
+	*x = Data_Cache{}
+	mi := &file_conf_conf_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Data_Cache) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Data_Cache) ProtoMessage() {}
+
+func (x *Data_Cache) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Data_Cache.ProtoReflect.Descriptor instead.
+func (*Data_Cache) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{3, 4}
+}
+
+func (x *Data_Cache) GetEvictionTime() *durationpb.Duration {
+	if x != nil {
+		return x.EvictionTime
+	}
+	return nil
+}
+
+type Data_Event struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	TransformationTimeout *durationpb.Duration   `protobuf:"bytes,1,opt,name=transformation_timeout,json=transformationTimeout,proto3" json:"transformation_timeout,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *Data_Event) Reset() {
+	*x = Data_Event{}
+	mi := &file_conf_conf_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Data_Event) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Data_Event) ProtoMessage() {}
+
+func (x *Data_Event) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Data_Event.ProtoReflect.Descriptor instead.
+func (*Data_Event) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{3, 5}
+}
+
+func (x *Data_Event) GetTransformationTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.TransformationTimeout
+	}
+	return nil
 }
 
 var File_conf_conf_proto protoreflect.FileDescriptor
@@ -592,12 +720,14 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x0fpublic_key_file\x18\x02 \x01(\tR\rpublicKeyFile\x12(\n" +
 	"\x10private_key_file\x18\x03 \x01(\tR\x0eprivateKeyFile\x12\x16\n" +
 	"\x06issuer\x18\x04 \x01(\tR\x06issuer\x12B\n" +
-	"\x0fexpiration_time\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x0eexpirationTime\"\x91\x05\n" +
+	"\x0fexpiration_time\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x0eexpirationTime\"\xf0\a\n" +
 	"\x04Data\x125\n" +
 	"\bdatabase\x18\x01 \x01(\v2\x19.kratos.api.Data.DatabaseR\bdatabase\x12,\n" +
 	"\x05redis\x18\x02 \x01(\v2\x16.kratos.api.Data.RedisR\x05redis\x12,\n" +
 	"\x05minio\x18\x03 \x01(\v2\x16.kratos.api.Data.MinIOR\x05minio\x125\n" +
-	"\brabbitmq\x18\x04 \x01(\v2\x19.kratos.api.Data.RabbitMQR\brabbitmq\x1a:\n" +
+	"\brabbitmq\x18\x04 \x01(\v2\x19.kratos.api.Data.RabbitMQR\brabbitmq\x12,\n" +
+	"\x05cache\x18\x05 \x01(\v2\x16.kratos.api.Data.CacheR\x05cache\x12,\n" +
+	"\x05event\x18\x06 \x01(\v2\x16.kratos.api.Data.EventR\x05event\x1a:\n" +
 	"\bDatabase\x12\x16\n" +
 	"\x06driver\x18\x01 \x01(\tR\x06driver\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x1a\xfb\x01\n" +
@@ -612,9 +742,16 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"access_key\x18\x02 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
-	"secret_key\x18\x03 \x01(\tR\tsecretKey\x1a\"\n" +
-	"\bRabbitMQ\x12\x16\n" +
-	"\x06source\x18\x01 \x01(\tR\x06sourceB\x1cZ\x1amanager/internal/conf;confb\x06proto3"
+	"secret_key\x18\x03 \x01(\tR\tsecretKey\x1a\x80\x01\n" +
+	"\bRabbitMQ\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12 \n" +
+	"\vconnections\x18\x02 \x01(\rR\vconnections\x12\x1a\n" +
+	"\busername\x18\x03 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x04 \x01(\tR\bpassword\x1aG\n" +
+	"\x05Cache\x12>\n" +
+	"\reviction_time\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\fevictionTime\x1aY\n" +
+	"\x05Event\x12P\n" +
+	"\x16transformation_timeout\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x15transformationTimeoutB\x1cZ\x1amanager/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -628,7 +765,7 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
@@ -639,28 +776,34 @@ var file_conf_conf_proto_goTypes = []any{
 	(*Data_Redis)(nil),          // 6: kratos.api.Data.Redis
 	(*Data_MinIO)(nil),          // 7: kratos.api.Data.MinIO
 	(*Data_RabbitMQ)(nil),       // 8: kratos.api.Data.RabbitMQ
-	(*durationpb.Duration)(nil), // 9: google.protobuf.Duration
+	(*Data_Cache)(nil),          // 9: kratos.api.Data.Cache
+	(*Data_Event)(nil),          // 10: kratos.api.Data.Event
+	(*durationpb.Duration)(nil), // 11: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.auth:type_name -> kratos.api.Auth
 	3,  // 2: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	4,  // 3: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	9,  // 4: kratos.api.Server.shutdown_timeout:type_name -> google.protobuf.Duration
-	9,  // 5: kratos.api.Auth.expiration_time:type_name -> google.protobuf.Duration
+	11, // 4: kratos.api.Server.shutdown_timeout:type_name -> google.protobuf.Duration
+	11, // 5: kratos.api.Auth.expiration_time:type_name -> google.protobuf.Duration
 	5,  // 6: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	6,  // 7: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
 	7,  // 8: kratos.api.Data.minio:type_name -> kratos.api.Data.MinIO
 	8,  // 9: kratos.api.Data.rabbitmq:type_name -> kratos.api.Data.RabbitMQ
-	9,  // 10: kratos.api.Server.HTTP.request_timeout:type_name -> google.protobuf.Duration
-	9,  // 11: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
-	9,  // 12: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	9,  // 13: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	9,  // 10: kratos.api.Data.cache:type_name -> kratos.api.Data.Cache
+	10, // 11: kratos.api.Data.event:type_name -> kratos.api.Data.Event
+	11, // 12: kratos.api.Server.HTTP.request_timeout:type_name -> google.protobuf.Duration
+	11, // 13: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
+	11, // 14: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	11, // 15: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	11, // 16: kratos.api.Data.Cache.eviction_time:type_name -> google.protobuf.Duration
+	11, // 17: kratos.api.Data.Event.transformation_timeout:type_name -> google.protobuf.Duration
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -674,7 +817,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

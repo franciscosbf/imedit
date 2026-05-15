@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"fmt"
 
 	"manager/ent"
 	"manager/ent/user"
@@ -16,26 +15,6 @@ import (
 type userRepo struct {
 	data *Data
 	log  *log.Helper
-}
-
-func (ur *userRepo) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
-	tx, err := ur.data.edb.Tx(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err := fn(tx); err != nil {
-		if rerr := tx.Rollback(); rerr != nil {
-			err = fmt.Errorf("%w: rolling back transaction: %v", err, rerr)
-		}
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("committing transaction: %w", err)
-	}
-
-	return nil
 }
 
 func (ur *userRepo) CreateUser(ctx context.Context, u *biz.User) error {
@@ -71,7 +50,7 @@ func (ur *userRepo) UpdateUserPassword(
 	matches func(currentPassword string) bool,
 	newPassword func() (string, error),
 ) error {
-	return ur.withTx(ctx, func(tx *ent.Tx) error {
+	return ur.data.withEntTx(ctx, func(tx *ent.Tx) error {
 		u, err := tx.User.
 			Query().
 			Where(user.Username(username)).

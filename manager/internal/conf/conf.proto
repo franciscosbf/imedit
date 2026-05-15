@@ -52,11 +52,24 @@ message Data {
   }
 
   message RabbitMQ {
-    string source = 1;
+    string endpoint = 1;
+    uint32 connections = 2;
+    string username = 3;
+    string password = 4;
+  }
+
+  message Cache {
+    google.protobuf.Duration eviction_time = 1;
+  }
+
+  message Event {
+    google.protobuf.Duration transformation_timeout = 1;
   }
 
   Database database = 1;
   Redis redis = 2;
   MinIO minio = 3;
   RabbitMQ rabbitmq = 4;
+  Cache cache = 5;
+  Event event = 6;
 }

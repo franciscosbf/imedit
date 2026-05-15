@@ -3,9 +3,9 @@ package v1
 import "context"
 
 type ImageContent struct {
-	Name    string
-	Type    string
-	Content []byte
+	Name     string
+	Encoding string
+	Content  []byte
 }
 
 type ImageStream interface {
@@ -17,12 +17,13 @@ type ImageUpload struct {
 }
 
 type ImageMeta struct {
-	ImageId string `json:"image_id"`
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Size    uint32 `json:"size"`
-	Width   uint32 `json:"width"`
-	Height  uint32 `json:"height"`
+	ImageId      string `json:"image_id"`
+	Name         string `json:"name"`
+	Encoding     string `json:"type"`
+	Size         uint32 `json:"size"`
+	Width        uint32 `json:"width"`
+	Height       uint32 `json:"height"`
+	LastModified string `json:"last_modified"`
 }
 
 type Image struct {
@@ -82,7 +83,7 @@ func (e EventType) String() string {
 	case FailedImageTranformation:
 		return "transformation_failure"
 	case UnexpectedError:
-		return "error"
+		return "unexpected_error"
 	default:
 		return "unknown"
 	}

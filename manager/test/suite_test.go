@@ -1,17 +1,24 @@
 package test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	pb "manager/api/user/v1"
+	iapi "manager/api/image/v1"
+	uapi "manager/api/user/v1"
 	"manager/ent"
 	"manager/internal/auth"
 	"manager/internal/biz"
@@ -20,12 +27,14 @@ import (
 	"manager/internal/server"
 	"manager/internal/service"
 
+	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
+
+	"github.com/cloudresty/go-rabbitmq"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -56,7 +65,7 @@ type IntegrationSuite struct {
 	edb          *ent.Client
 	rdb          *redis.Client
 	mdb          *minio.Client
-	rmq          *amqp.Connection
+	rmq          *rabbitmq.Client
 	jwtAuth      auth.JwtAuthenticator
 	pwdGen       auth.PasswordGenerator
 	appEndpoint  string
@@ -98,11 +107,11 @@ func (s *IntegrationSuite) sendRawRequest(
 }
 
 func (s *IntegrationSuite) registerUser(tu *testUser) {
-	request := pb.RegisterUserRequest{
+	request := uapi.RegisterUserRequest{
 		Username: tu.username,
 		Password: tu.password,
 	}
-	response := pb.RegisterUserReply{}
+	response := uapi.RegisterUserReply{}
 
 	assert.NoError(
 		s.T(),
@@ -111,11 +120,11 @@ func (s *IntegrationSuite) registerUser(tu *testUser) {
 }
 
 func (s *IntegrationSuite) loginUser(tu *testUser) string {
-	request := pb.LoginUserRequest{
+	request := uapi.LoginUserRequest{
 		Username: tu.username,
 		Password: tu.password,
 	}
-	response := pb.LoginUserReply{}
+	response := uapi.LoginUserReply{}
 
 	assert.NoError(
 		s.T(),
@@ -123,6 +132,95 @@ func (s *IntegrationSuite) loginUser(tu *testUser) string {
 	)
 
 	return "Bearer " + response.Token
+}
+
+func (s *IntegrationSuite) registerAndLoginUser() (testUser, string) {
+	tu := testUser{
+		username: "username",
+		password: "password",
+	}
+
+	s.registerUser(&tu)
+	return tu, s.loginUser(&tu)
+}
+
+func (s *IntegrationSuite) encodeJsonBody(v any) io.Reader {
+	buf := &bytes.Buffer{}
+
+	content, err := json.Marshal(v)
+	assert.NoError(s.T(), err, "failed to encode body")
+
+	_, _ = buf.Write(content)
+
+	return buf
+}
+
+func (s *IntegrationSuite) decodeJsonBody(body io.ReadCloser, v any) {
+	content, err := io.ReadAll(body)
+	defer func() { _ = body.Close() }()
+	assert.NoError(s.T(), err, "failed to read body")
+
+	assert.NoError(s.T(), json.Unmarshal(content, v), "failed to decode body")
+}
+
+func (s *IntegrationSuite) uploadImage(path, bearerToken string) (string, []byte) {
+	content, err := os.ReadFile(path)
+	assert.NoError(s.T(), err, "failed to load image %s", path)
+
+	buf := bytes.Buffer{}
+
+	mw := multipart.NewWriter(&buf)
+
+	header := http.Header{}
+	header.Set("Content-Type", mw.FormDataContentType())
+
+	mHeaders := make(textproto.MIMEHeader)
+	imgName := filepath.Base(path)
+	mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgName))
+	imgType := strings.Split(imgName, ".")[1]
+	mHeaders.Set("Content-Type", "image/"+imgType)
+
+	mpw, err := mw.CreatePart(mHeaders)
+	assert.NoError(s.T(), err, "failed to create multipart section")
+
+	_, err = mpw.Write(content)
+	assert.NoError(s.T(), err, "failed to write file into multipart section")
+
+	assert.NoError(s.T(), mw.Close())
+
+	header.Add("Authorization", bearerToken)
+
+	resp, err := s.sendRawRequest("POST", "/v1/image/upload", nil, header, &buf)
+	assert.NoError(s.T(), err)
+
+	metadata := iapi.ImageMeta{}
+	s.decodeJsonBody(resp.Body, &metadata)
+
+	return metadata.ImageId, content
+}
+
+func (s *IntegrationSuite) validateMidiaType(header http.Header) (_params map[string]string) {
+	mediaType, params, err := mime.ParseMediaType(header.Get("Content-Type"))
+	assert.NoError(s.T(), err, "failed to parse media type from Content-Type")
+	assert.Equal(s.T(), "multipart/form-data", mediaType)
+	assert.Contains(s.T(), params, "boundary", "missing boundary in Content-Type")
+
+	return params
+}
+
+func (s *IntegrationSuite) validateExpectedMimePart(mr *multipart.Reader, path string, imageContent []byte) {
+	part, err := mr.NextPart()
+	assert.NoError(s.T(), err, "expecting image part")
+	assert.Equal(s.T(), "image", part.FormName())
+	imgName := filepath.Base(path)
+	assert.Equal(s.T(), imgName, part.FileName())
+	imgType := strings.Split(imgName, ".")[1]
+	assert.Equal(s.T(), "image/"+imgType, part.Header.Get("Content-Type"))
+
+	storedContent, err := io.ReadAll(part)
+	assert.NoError(s.T(), err, "failed to read image content")
+	defer func() { _ = part.Close() }()
+	assert.ElementsMatch(s.T(), imageContent, storedContent)
 }
 
 func (s *IntegrationSuite) runReddisContainer() {
@@ -168,7 +266,7 @@ func (s *IntegrationSuite) runMinIOContainer() {
 		err     error
 	)
 
-	license, err = filepath.Abs("./minio/minio.license/")
+	license, err = filepath.Abs("./minio/minio.license")
 	assert.NoError(s.T(), err, "failed to obtain absolute path for ./minio/minio.license")
 	s.cmio, err = testcontainers.Run(
 		context.Background(), "quay.io/minio/aistor/minio:RELEASE.2026-03-26T21-24-40Z",
@@ -193,13 +291,23 @@ func (s *IntegrationSuite) runMinIOContainer() {
 }
 
 func (s *IntegrationSuite) runRabbitMQContainer() {
-	var err error
+	var (
+		plugins string
+		err     error
+	)
 
+	plugins, err = filepath.Abs("./rabbitmq/enabled_plugins")
+	assert.NoError(s.T(), err, "failed to obtain absolute path for ./rabbitmq/enabled_plugins")
 	s.crmq, err = testcontainers.Run(
 		context.Background(), "rabbitmq:4.2.5-management",
 		testcontainers.WithEnv(map[string]string{
 			"RABBITMQ_DEFAULT_USER": "user",
 			"RABBITMQ_DEFAULT_PASS": "password",
+		}),
+		testcontainers.WithFiles(testcontainers.ContainerFile{
+			HostFilePath:      plugins,
+			ContainerFilePath: "/etc/rabbitmq/enabled_plugins",
+			FileMode:          0o777,
 		}),
 		testcontainers.WithExposedPorts("5672/tcp"),
 		testcontainers.WithWaitStrategy(
@@ -210,21 +318,6 @@ func (s *IntegrationSuite) runRabbitMQContainer() {
 	assert.NoError(s.T(), err, "failed to launch RabbitMQ container")
 	s.crmqEndpoint, err = s.crmq.PortEndpoint(context.Background(), nat.Port("5672"), "")
 	assert.NoError(s.T(), err, "failed to retrieve RabbitMQ container endpoint")
-}
-
-func (s *IntegrationSuite) teardownContainers() {
-	if s.crdb != nil {
-		testcontainers.CleanupContainer(s.T(), s.crdb)
-	}
-	if s.cdb != nil {
-		testcontainers.CleanupContainer(s.T(), s.cdb)
-	}
-	if s.cmio != nil {
-		testcontainers.CleanupContainer(s.T(), s.cmio)
-	}
-	if s.crmq != nil {
-		testcontainers.CleanupContainer(s.T(), s.crmq)
-	}
 }
 
 func (s *IntegrationSuite) setupAppConfig() {
@@ -258,37 +351,15 @@ func (s *IntegrationSuite) setupAppConfig() {
 				SecretKey: "password",
 			},
 			Rabbitmq: &conf.Data_RabbitMQ{
-				Source: fmt.Sprintf("amqp://user:password@%s/", s.crmqEndpoint),
+				Endpoint:    s.crmqEndpoint,
+				Connections: 5,
+				Username:    "user",
+				Password:    "password",
 			},
+			Cache: &conf.Data_Cache{},
+			Event: &conf.Data_Event{},
 		},
 	}
-}
-
-func (s *IntegrationSuite) setupAppAndRun() {
-	var err error
-
-	s.jwtAuth, err = auth.NewJwtAuthenticator(s.config.Auth)
-	assert.NoError(s.T(), err, "failed to create JWT authenticator")
-	s.pwdGen = auth.NewPasswordGenerator()
-	logger := log.NewStdLogger(os.Stdout)
-	ddata, _, err := data.NewData(s.config.Data)
-	assert.NoError(s.T(), err, "failed to create data")
-	repo := data.NewUserRepo(ddata, logger)
-	uc := biz.NewUserUsecase(s.jwtAuth, s.pwdGen, repo)
-	user := service.NewUserService(uc, logger)
-	image := service.NewImageService(logger)
-	server := server.NewHTTPServer(s.config.Server, s.jwtAuth, user, image, logger)
-	s.app = kratos.New(kratos.Server(server))
-
-	u, err := server.Endpoint()
-	assert.NoError(s.T(), err, "failed to retrieve http server endpoint")
-	s.appEndpoint = u.Host
-
-	go func() { _ = s.app.Run() }()
-}
-
-func (s *IntegrationSuite) teardownApp() {
-	assert.NoError(s.T(), s.app.Stop(), "failed to stop app")
 }
 
 func (s *IntegrationSuite) setupMySQLConnection() {
@@ -296,9 +367,6 @@ func (s *IntegrationSuite) setupMySQLConnection() {
 
 	s.edb, err = ent.Open(s.config.Data.Database.Driver, s.config.Data.Database.Source)
 	assert.NoError(s.T(), err, "failed to open MySQl database connection")
-
-	assert.NoError(s.T(), s.edb.Schema.Create(context.Background()),
-		"failed to create schema for %v database")
 }
 
 func (s *IntegrationSuite) setupRedisConnection() {
@@ -314,14 +382,56 @@ func (s *IntegrationSuite) setupMinIOConnection() {
 	s.mdb, err = minio.New(s.config.Data.Minio.Endpoint, &minio.Options{
 		Creds: credentials.NewStaticV4(s.config.Data.Minio.AccessKey, s.config.Data.Minio.SecretKey, ""),
 	})
-	assert.NoError(s.T(), err, "failed to open MinIO AIStor database connection")
+	assert.NoError(s.T(), err, "failed to open MinIO database connection")
 }
 
 func (s *IntegrationSuite) setupRabbitMQConnection() {
 	var err error
 
-	s.rmq, err = amqp.Dial(s.config.Data.Rabbitmq.Source)
+	s.rmq, err = rabbitmq.NewClient(
+		rabbitmq.WithHosts(s.config.Data.Rabbitmq.Endpoint),
+		rabbitmq.WithCredentials(
+			s.config.Data.Rabbitmq.Username,
+			s.config.Data.Rabbitmq.Password,
+		),
+	)
 	assert.NoError(s.T(), err, "failed to open RabbitMQ connection")
+}
+
+func (s *IntegrationSuite) setupMySQLDatabase() {
+	assert.NoError(s.T(), s.edb.Schema.Create(context.Background()),
+		"failed to create schema for %v database")
+}
+
+func (s *IntegrationSuite) setupMinIODatabase() {
+	assert.NoError(s.T(),
+		s.mdb.MakeBucket(context.Background(), cminio.ImagesBucket, minio.MakeBucketOptions{}),
+		"failed to create bucket %s in MinIO database")
+}
+
+func (s *IntegrationSuite) setupAppAndRun() {
+	var err error
+
+	s.jwtAuth, err = auth.NewJwtAuthenticator(s.config.Auth)
+	assert.NoError(s.T(), err, "failed to create JWT authenticator")
+	s.pwdGen = auth.NewPasswordGenerator()
+	logger := log.NewStdLogger(os.Stdout)
+	ddata, _, err := data.NewData(s.config.Data)
+	assert.NoError(s.T(), err, "failed to create data")
+	urepo := data.NewUserRepo(ddata, logger)
+	uuc := biz.NewUserUsecase(s.jwtAuth, s.pwdGen, urepo)
+	user := service.NewUserService(uuc, logger)
+	irepo := data.NewImageRepo(ddata, logger)
+	iuc := biz.NewImageUsecase(s.jwtAuth, irepo, logger)
+	image := service.NewImageService(iuc, logger)
+	server := server.NewHTTPServer(s.config.Server, s.jwtAuth, user, image, logger)
+	s.app = kratos.New(kratos.Server(server))
+
+	u, err := server.Endpoint()
+	assert.NoError(s.T(), err, "failed to retrieve http server endpoint")
+	s.appEndpoint = u.Host
+
+	go func() { _ = s.app.Run() }()
 }
 
 func (s *IntegrationSuite) setupAppConnection() {
@@ -329,8 +439,13 @@ func (s *IntegrationSuite) setupAppConnection() {
 
 	s.client, err = khttp.NewClient(
 		context.Background(),
-		khttp.WithEndpoint(s.appEndpoint))
+		khttp.WithEndpoint(s.appEndpoint),
+	)
 	assert.NoError(s.T(), err, "failed to create http client")
+}
+
+func (s *IntegrationSuite) teardownApp() {
+	assert.NoError(s.T(), s.app.Stop(), "failed to stop app")
 }
 
 func (s *IntegrationSuite) teardownConnections() {
@@ -338,6 +453,21 @@ func (s *IntegrationSuite) teardownConnections() {
 	assert.NoError(s.T(), s.edb.Close(), "failed to close database client")
 	assert.NoError(s.T(), s.rmq.Close(), "failed to close RabbitMQ client")
 	assert.NoError(s.T(), s.client.Close(), "failed to close app client")
+}
+
+func (s *IntegrationSuite) teardownContainers() {
+	if s.crdb != nil {
+		testcontainers.CleanupContainer(s.T(), s.crdb)
+	}
+	if s.cdb != nil {
+		testcontainers.CleanupContainer(s.T(), s.cdb)
+	}
+	if s.cmio != nil {
+		testcontainers.CleanupContainer(s.T(), s.cmio)
+	}
+	if s.crmq != nil {
+		testcontainers.CleanupContainer(s.T(), s.crmq)
+	}
 }
 
 func (s *IntegrationSuite) SetupSuite() {
@@ -355,12 +485,16 @@ func (s *IntegrationSuite) SetupSuite() {
 	s.runRabbitMQContainer()
 
 	s.setupAppConfig()
-	s.setupAppAndRun()
 
 	s.setupMySQLConnection()
 	s.setupRedisConnection()
 	s.setupMinIOConnection()
 	s.setupRabbitMQConnection()
+
+	s.setupMySQLDatabase()
+	s.setupMinIODatabase()
+
+	s.setupAppAndRun()
 	s.setupAppConnection()
 }
 
@@ -374,9 +508,21 @@ func (s *IntegrationSuite) TeardownSuite() {
 
 func (s *IntegrationSuite) AfterTest(_, _ string) {
 	_, err := s.edb.User.Delete().Exec(context.Background())
-	assert.NoError(s.T(), err, "failed to delete users")
+	assert.NoError(s.T(), err, "failed to delete users from MySQL database")
 
-	// TODO: delete everything about images
+	_, err = s.edb.Image.Delete().Exec(context.Background())
+	assert.NoError(s.T(), err, "failed to delete images from MySQL database")
+
+	imageIds := []string{}
+	for objInfo := range s.mdb.ListObjects(context.Background(), cminio.ImagesBucket, minio.ListObjectsOptions{}) {
+		assert.NoError(s.T(), objInfo.Err, "failed to remove object from MinIO bucket %s", cminio.ImagesBucket)
+		imageIds = append(imageIds, objInfo.Key)
+	}
+	for _, imageId := range imageIds {
+		assert.NoError(s.T(),
+			s.mdb.RemoveObject(context.Background(), cminio.ImagesBucket, imageId, minio.RemoveObjectOptions{}),
+			"failed to remove object %s from bucket ")
+	}
 }
 
 func TestIntegrationSuite(t *testing.T) {

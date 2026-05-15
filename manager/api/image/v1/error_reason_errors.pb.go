@@ -11,28 +11,16 @@ import (
 // is compatible with the kratos package it is being compiled against.
 const _ = errors.SupportPackageIsVersion1
 
-func IsInvalidImage(err error) bool {
+func IsImageNotSupported(err error) bool {
 	if err == nil {
 		return false
 	}
 	e := errors.FromError(err)
-	return e.Reason == ErrorReason_INVALID_IMAGE.String() && e.Code == 400
+	return e.Reason == ErrorReason_IMAGE_NOT_SUPPORTED.String() && e.Code == 400
 }
 
-func ErrorInvalidImage(format string, args ...interface{}) *errors.Error {
-	return errors.New(400, ErrorReason_INVALID_IMAGE.String(), fmt.Sprintf(format, args...))
-}
-
-func IsInvalidImagePagination(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := errors.FromError(err)
-	return e.Reason == ErrorReason_INVALID_IMAGE_PAGINATION.String() && e.Code == 400
-}
-
-func ErrorInvalidImagePagination(format string, args ...interface{}) *errors.Error {
-	return errors.New(400, ErrorReason_INVALID_IMAGE_PAGINATION.String(), fmt.Sprintf(format, args...))
+func ErrorImageNotSupported(format string, args ...interface{}) *errors.Error {
+	return errors.New(400, ErrorReason_IMAGE_NOT_SUPPORTED.String(), fmt.Sprintf(format, args...))
 }
 
 func IsImageNotFound(err error) bool {

@@ -61,13 +61,7 @@ func (s *IntegrationSuite) TestUserLogin() {
 }
 
 func (s *IntegrationSuite) TestUserPasswordChanged() {
-	tu := &testUser{
-		username: "username",
-		password: "password",
-	}
-
-	s.registerUser(tu)
-	bearerToken := s.loginUser(tu)
+	tu, bearerToken := s.registerAndLoginUser()
 
 	request := pb.UpdateUserPasswordRequest{
 		Username:        tu.username,

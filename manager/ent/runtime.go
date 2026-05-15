@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"manager/ent/image"
 	"manager/ent/schema"
 	"manager/ent/user"
 )
@@ -11,6 +12,12 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	imageFields := schema.Image{}.Fields()
+	_ = imageFields
+	// imageDescImageID is the schema descriptor for image_id field.
+	imageDescImageID := imageFields[0].Descriptor()
+	// image.ImageIDValidator is a validator for the "image_id" field. It is called by the builders before save.
+	image.ImageIDValidator = imageDescImageID.Validators[0].(func(string) error)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescUsername is the schema descriptor for username field.

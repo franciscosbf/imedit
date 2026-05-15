@@ -18,6 +18,7 @@ import (
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -36,13 +37,16 @@ type ImageHTTPServer interface {
 func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServer, logger log.Logger) {
 	log := log.NewHelper(logger)
 
-	r := s.Route("/")
-	r.POST("/v1/image/upload", uploadImageHandler(c, srv))
-	r.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv, log))
-	r.GET("/v1/image/paginated", getPaginatedImageHandler(srv, log))
-	r.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
-	r.PUT("/v1/image/transform", transformImageHandler(srv))
-	r.GET("/v1/image/ws", imageNotificationHandler(srv, log))
+	route := s.Route("/")
+	route.POST("/v1/image/upload", uploadImageHandler(c, srv))
+	route.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv, log))
+	route.GET("/v1/image/paginated", getPaginatedImageHandler(srv, log))
+	route.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
+	route.PUT("/v1/image/transform", transformImageHandler(srv))
+
+	router := mux.NewRouter()
+	router.HandleFunc("/v1/image/ws", imageNotificationHandler(srv, log))
+	s.HandlePrefix("/", router)
 }
 
 func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Context) error {
@@ -77,8 +81,6 @@ func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Cont
 		if !strings.HasPrefix(imgType, "image/") {
 			return kerrors.BadRequest("CODEC", "expected image file type in Content-Type header value")
 		}
-
-		log.Info(http.DetectContentType(imgContent), imgType)
 
 		if http.DetectContentType(imgContent) != imgType {
 			return kerrors.BadRequest("CODEC", "unrecognized image")
@@ -127,12 +129,12 @@ func sendImage(resp http.ResponseWriter, next func() (*ImageContent, error), log
 		} else if err != nil {
 			log.Warn("Failed to retrieve image: %v", err)
 
-			break
+			continue
 		}
 
 		mHeaders := make(textproto.MIMEHeader)
 		mHeaders.Set("Content-Disposition", multipart.FileContentDisposition("image", imgContent.Name))
-		mHeaders.Set("Content-Type", "image/"+imgContent.Type)
+		mHeaders.Set("Content-Type", "image/"+imgContent.Encoding)
 
 		var mpw io.Writer
 		mpw, err = mw.CreatePart(mHeaders)
@@ -277,16 +279,17 @@ func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
 	return wsjson.Write(ctx, nc.Conn, retEvent)
 }
 
-func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
-	return func(kctx khttp.Context) (_ error) {
-		conn, err := websocket.Accept(kctx.Response(), kctx.Request(), nil)
+func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			log.Warnf("While accepting WebSocket connection: %v", err)
+
 			return
 		}
 		nCli := notifierClient{conn}
 
-		ctx := nCli.CloseRead(kctx.Request().Context())
+		ctx := nCli.CloseRead(context.Background())
 
 		defer func() {
 			err := nCli.Close(websocket.StatusNormalClosure, "connection closed")
@@ -305,6 +308,7 @@ func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx kht
 			}
 
 			log.Errorf("Failed to initialize notifier: %v", err)
+
 			return
 		}
 
@@ -312,7 +316,6 @@ func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx kht
 			var (
 				event Event
 				err   error
-				serr  error
 			)
 
 			if event, err = notifier.Notify(ctx); event == nil {
@@ -321,8 +324,9 @@ func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx kht
 				event = &UnexpectedErrorEvent{err.Error()}
 			}
 
-			if serr = nCli.sendEvent(ctx, event); serr != nil {
-				log.Warnf("Could not notify client: %v", serr)
+			if err := nCli.sendEvent(ctx, event); err != nil {
+				log.Warnf("Failed to notify client with event: %v", err)
+
 				break
 			}
 
@@ -330,7 +334,5 @@ func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx kht
 				break
 			}
 		}
-
-		return
 	}
 }

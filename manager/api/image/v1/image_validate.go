@@ -17,7 +17,7 @@ func (iu *ImageUpload) Validate() error {
 		return fmt.Errorf("image name must be provided in header Content-Disposition of sub-part")
 	}
 
-	if iu.Image.Type == "" {
+	if iu.Image.Encoding == "" {
 		return fmt.Errorf("image type must be provided in header Content-Type of sub-part")
 	}
 

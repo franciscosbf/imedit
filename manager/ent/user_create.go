@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"manager/ent/image"
 	"manager/ent/user"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -29,6 +30,21 @@ func (_c *UserCreate) SetUsername(v string) *UserCreate {
 func (_c *UserCreate) SetPassword(v string) *UserCreate {
 	_c.mutation.SetPassword(v)
 	return _c
+}
+
+// AddImageIDs adds the "images" edge to the Image entity by IDs.
+func (_c *UserCreate) AddImageIDs(ids ...int) *UserCreate {
+	_c.mutation.AddImageIDs(ids...)
+	return _c
+}
+
+// AddImages adds the "images" edges to the Image entity.
+func (_c *UserCreate) AddImages(v ...*Image) *UserCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddImageIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -114,6 +130,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Password(); ok {
 		_spec.SetField(user.FieldPassword, field.TypeString, value)
 		_node.Password = value
+	}
+	if nodes := _c.mutation.ImagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ImagesTable,
+			Columns: []string{user.ImagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

@@ -37,7 +37,9 @@ func wireApp(confServer *conf.Server, confAuth *conf.Auth, confData *conf.Data, 
 	userRepo := data.NewUserRepo(dataData, logger)
 	userUsecase := biz.NewUserUsecase(jwtAuthenticator, passwordGenerator, userRepo)
 	userService := service.NewUserService(userUsecase, logger)
-	imageService := service.NewImageService(logger)
+	imageRepo := data.NewImageRepo(dataData, logger)
+	imageUsecase := biz.NewImageUsecase(jwtAuthenticator, imageRepo, logger)
+	imageService := service.NewImageService(imageUsecase, logger)
 	httpServer := server.NewHTTPServer(confServer, jwtAuthenticator, userService, imageService, logger)
 	app := newApp(logger, httpServer, confServer)
 	return app, func() {

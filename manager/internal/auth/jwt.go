@@ -24,6 +24,7 @@ const (
 type JwtAuthenticator interface {
 	Validator() middleware.Middleware
 	Sign(sub string) (string, error)
+	ExtractSub(ctx context.Context) string
 }
 
 type keyType int
@@ -176,6 +177,20 @@ func (ja *JwtKeyAuthenticator) Sign(sub string) (string, error) {
 	return token.SignedString(ja.privKey)
 }
 
+func (*JwtKeyAuthenticator) ExtractSub(ctx context.Context) string {
+	claims, has := jwt.FromContext(ctx)
+	if !has {
+		return ""
+	}
+
+	csub, err := claims.GetSubject()
+	if err != nil {
+		return ""
+	}
+
+	return csub
+}
+
 func NewJwtAuthenticator(c *conf.Auth) (JwtAuthenticator, error) {
 	method, err := getSigningMethod(c.Algorithm)
 	if method == nil {
@@ -209,14 +224,4 @@ func NewJwtAuthenticator(c *conf.Auth) (JwtAuthenticator, error) {
 	claims := claimsMeta{issuer, expiration}
 
 	return &JwtKeyAuthenticator{method, privKey, pubKey, claims}, nil
-}
-
-func HasSub(ctx context.Context, sub string) bool {
-	claims, has := jwt.FromContext(ctx)
-	if !has {
-		return false
-	}
-
-	csub, err := claims.GetSubject()
-	return sub == csub && err == nil
 }
