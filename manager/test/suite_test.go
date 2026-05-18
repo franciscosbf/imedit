@@ -27,10 +27,11 @@ import (
 	"manager/internal/server"
 	"manager/internal/service"
 
+	"github.com/coder/websocket"
+	"github.com/docker/go-connections/nat"
 	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 
 	"github.com/cloudresty/go-rabbitmq"
-	"github.com/docker/go-connections/nat"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/minio/minio-go/v7"
@@ -223,6 +224,16 @@ func (s *IntegrationSuite) validateExpectedMimePart(mr *multipart.Reader, path s
 	assert.ElementsMatch(s.T(), imageContent, storedContent)
 }
 
+func (s *IntegrationSuite) openWsConnection(ctx context.Context, path string, header http.Header) (*websocket.Conn, error) {
+	conn, _, err := websocket.Dial(
+		ctx,
+		fmt.Sprintf("ws://%s/%s", s.appEndpoint, path),
+		&websocket.DialOptions{HTTPHeader: header},
+	)
+
+	return conn, err
+}
+
 func (s *IntegrationSuite) runReddisContainer() {
 	var err error
 
@@ -324,7 +335,7 @@ func (s *IntegrationSuite) setupAppConfig() {
 	s.config = &conf.Bootstrap{
 		Server: &conf.Server{Http: &conf.Server_HTTP{
 			Endpoint:       "0.0.0.0:0",
-			RequestTimeout: durationpb.New(5 * time.Second),
+			RequestTimeout: durationpb.New(16 * time.Second),
 		}},
 		Auth: &conf.Auth{
 			Algorithm:      "ES256",

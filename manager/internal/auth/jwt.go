@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/go-kratos/kratos/v2/middleware/auth/jwt"
-	"github.com/go-kratos/kratos/v2/transport"
+	ktransport "github.com/go-kratos/kratos/v2/transport"
 	jwtv5 "github.com/golang-jwt/jwt/v5"
 )
 
@@ -118,7 +118,7 @@ type JwtKeyAuthenticator struct {
 	claims          claimsMeta
 }
 
-func (ja *JwtKeyAuthenticator) Validator() middleware.Middleware {
+func (ja *JwtKeyAuthenticator) newJwtParser() func(authorization string) (*jwtv5.Token, error) {
 	keyFunc := func(token *jwtv5.Token) (any, error) {
 		return ja.pubKey, nil
 	}
@@ -129,38 +129,55 @@ func (ja *JwtKeyAuthenticator) Validator() middleware.Middleware {
 		jwtv5.WithValidMethods([]string{ja.method.Alg()}),
 	}
 
+	return func(authorization string) (*jwtv5.Token, error) {
+		auths := strings.SplitN(authorization, " ", 2)
+		if len(auths) != 2 || !strings.EqualFold(auths[0], bearerWord) {
+			return nil, jwt.ErrMissingJwtToken
+		}
+		jwtToken := auths[1]
+		var (
+			tokenInfo *jwtv5.Token
+			err       error
+		)
+		tokenInfo, err = jwtv5.Parse(jwtToken, keyFunc, options...)
+		if err != nil {
+			if errors.Is(err, jwtv5.ErrTokenMalformed) || errors.Is(err, jwtv5.ErrTokenUnverifiable) {
+				return nil, jwt.ErrTokenInvalid
+			}
+			if errors.Is(err, jwtv5.ErrTokenNotValidYet) || errors.Is(err, jwtv5.ErrTokenExpired) {
+				return nil, jwt.ErrTokenExpired
+			}
+			return nil, jwt.ErrTokenParseFail
+		}
+
+		if !tokenInfo.Valid {
+			return nil, jwt.ErrTokenInvalid
+		}
+		if tokenInfo.Method != ja.method {
+			return nil, jwt.ErrUnSupportSigningMethod
+		}
+
+		return tokenInfo, nil
+	}
+}
+
+func (ja *JwtKeyAuthenticator) Validator() middleware.Middleware {
+	parseJwt := ja.newJwtParser()
+
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {
-			if header, ok := transport.FromServerContext(ctx); ok {
-				auths := strings.SplitN(header.RequestHeader().Get(authorizationKey), " ", 2)
-				if len(auths) != 2 || !strings.EqualFold(auths[0], bearerWord) {
-					return nil, jwt.ErrMissingJwtToken
-				}
-				jwtToken := auths[1]
-				var (
-					tokenInfo *jwtv5.Token
-					err       error
-				)
-				tokenInfo, err = jwtv5.Parse(jwtToken, keyFunc, options...)
+			if header, ok := ktransport.FromServerContext(ctx); ok {
+				authorization := header.RequestHeader().Get(authorizationKey)
+				tokenInfo, err := parseJwt(authorization)
 				if err != nil {
-					if errors.Is(err, jwtv5.ErrTokenMalformed) || errors.Is(err, jwtv5.ErrTokenUnverifiable) {
-						return nil, jwt.ErrTokenInvalid
-					}
-					if errors.Is(err, jwtv5.ErrTokenNotValidYet) || errors.Is(err, jwtv5.ErrTokenExpired) {
-						return nil, jwt.ErrTokenExpired
-					}
-					return nil, jwt.ErrTokenParseFail
+					return nil, err
 				}
 
-				if !tokenInfo.Valid {
-					return nil, jwt.ErrTokenInvalid
-				}
-				if tokenInfo.Method != ja.method {
-					return nil, jwt.ErrUnSupportSigningMethod
-				}
 				ctx = jwt.NewContext(ctx, tokenInfo.Claims)
+
 				return handler(ctx, req)
 			}
+
 			return nil, jwt.ErrWrongContext
 		}
 	}

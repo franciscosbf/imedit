@@ -196,7 +196,7 @@ func (iu *ImageUsecase) Get(ctx context.Context, imageId string) (*ImageContent,
 	if image, err := iu.repo.GetCachedUserImage(ctx, username, imageId); image != nil {
 		return image, nil
 	} else if err != nil {
-		iu.log.Warn("Failed to retrieve from cache image %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to retrieve from cache image %s of user %s: %v", username, imageId, err)
 	}
 
 	image, err := iu.repo.GetStoredUserImage(ctx, username, imageId)
@@ -243,7 +243,7 @@ func (iu *ImageUsecase) GetMetadata(ctx context.Context, imageId string) (*Image
 	if metadata, err := iu.repo.GetCachedUserImageMetadata(ctx, username, imageId); metadata != nil {
 		return metadata, nil
 	} else if err != nil {
-		iu.log.Warn("Failed to retrieve from cache image metadata %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to retrieve from cache image metadata %s of user %s: %v", username, imageId, err)
 	}
 
 	metadata, err := iu.repo.GetStoredUserImageMetadata(ctx, username, imageId)
@@ -275,11 +275,11 @@ func (iu *ImageUsecase) Transform(
 	}
 
 	if err := iu.repo.EvictUserImage(ctx, username, imageId); err != nil {
-		iu.log.Warn("Failed to evict cached image %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to evict cached image %s of user %s: %v", username, imageId, err)
 	}
 
 	if err := iu.repo.EvictUserImageMetadata(ctx, username, imageId); err != nil {
-		iu.log.Warn("Failed to evict cached image metadata %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to evict cached image metadata %s of user %s: %v", username, imageId, err)
 	}
 
 	return scheduled, err

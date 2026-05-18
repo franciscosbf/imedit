@@ -442,8 +442,8 @@ func (s *ImageHttpTestSuite) TestImageNotification() {
 	callEndpoint := s.mHttpSrv.On("ImageNotification", nil).Return(s.mHttpSrv.mNotifier, nil).Once()
 	callNotifier := s.mHttpSrv.mNotifier.On("Notify", nil).Return(transformedImgEvent, nil).Once()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancelCtx()
 
 	conn, err := s.openWsConnection(ctx, "/v1/image/ws")
 	assert.NoError(s.T(), err, "failed to open WebSocket connection")

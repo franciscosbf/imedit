@@ -18,7 +18,6 @@ import (
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -43,10 +42,7 @@ func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServe
 	route.GET("/v1/image/paginated", getPaginatedImageHandler(srv, log))
 	route.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
 	route.PUT("/v1/image/transform", transformImageHandler(srv))
-
-	router := mux.NewRouter()
-	router.HandleFunc("/v1/image/ws", imageNotificationHandler(srv, log))
-	s.HandlePrefix("/", router)
+	route.GET("/v1/image/ws", imageNotificationHandler(srv, log))
 }
 
 func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Context) error {
@@ -279,60 +275,72 @@ func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
 	return wsjson.Write(ctx, nc.Conn, retEvent)
 }
 
-func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			log.Warnf("While accepting WebSocket connection: %v", err)
+func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
+	return func(ctx khttp.Context) (_ error) {
+		w := ctx.Response()
+
+		r := ctx.Request()
+
+		mHandler := ctx.Middleware(func(ctx context.Context, _ any) (_ any, _ error) {
+			conn, err := websocket.Accept(w, r, nil)
+			if err != nil {
+				log.Warnf("While accepting WebSocket connection: %v", err)
+
+				return
+			}
+			nCli := notifierClient{conn}
+
+			ctx = nCli.CloseRead(ctx)
+
+			defer func() {
+				err := nCli.Close(websocket.StatusNormalClosure, "connection closed")
+				if err != nil && err != net.ErrClosed && ctx.Err() != context.Canceled {
+					log.Warnf("WebSocket connection wasn't properly closed: %v", err)
+				}
+			}()
+
+			notifier, err := srv.ImageNotification(ctx)
+			if err != nil {
+				event := UnexpectedErrorEvent{
+					Reason: fmt.Sprintf("failed to initialize notifier: %v", err),
+				}
+				if err := nCli.sendEvent(ctx, &event); err != nil {
+					log.Warnf("Could not notify client on failed notifier initialization: %v", err)
+				}
+
+				log.Errorf("Failed to initialize notifier: %v", err)
+
+				return
+			}
+
+			for {
+				var (
+					event Event
+					err   error
+				)
+
+				if event, err = notifier.Notify(ctx); event == nil {
+					break
+				} else if err != nil {
+					event = &UnexpectedErrorEvent{err.Error()}
+				}
+
+				if err := nCli.sendEvent(ctx, event); err != nil {
+					log.Warnf("Failed to notify client with event: %v", err)
+
+					break
+				}
+
+				if event.Type() == UnexpectedError {
+					break
+				}
+			}
 
 			return
-		}
-		nCli := notifierClient{conn}
+		})
 
-		ctx := nCli.CloseRead(context.Background())
+		_, err := mHandler(ctx, nil)
 
-		defer func() {
-			err := nCli.Close(websocket.StatusNormalClosure, "connection closed")
-			if err != nil && err != net.ErrClosed && ctx.Err() != context.Canceled {
-				log.Warnf("WebSocket connection wasn't properly closed: %v", err)
-			}
-		}()
-
-		notifier, err := srv.ImageNotification(ctx)
-		if err != nil {
-			event := UnexpectedErrorEvent{
-				Reason: fmt.Sprintf("failed to initialize notifier: %v", err),
-			}
-			if err := nCli.sendEvent(ctx, &event); err != nil {
-				log.Warnf("Could not notify client on failed notifier initialization: %v", err)
-			}
-
-			log.Errorf("Failed to initialize notifier: %v", err)
-
-			return
-		}
-
-		for {
-			var (
-				event Event
-				err   error
-			)
-
-			if event, err = notifier.Notify(ctx); event == nil {
-				break
-			} else if err != nil {
-				event = &UnexpectedErrorEvent{err.Error()}
-			}
-
-			if err := nCli.sendEvent(ctx, event); err != nil {
-				log.Warnf("Failed to notify client with event: %v", err)
-
-				break
-			}
-
-			if event.Type() == UnexpectedError {
-				break
-			}
-		}
+		return err
 	}
 }

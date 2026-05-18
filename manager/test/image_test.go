@@ -18,6 +18,8 @@ import (
 	"manager/ent/user"
 
 	"github.com/cloudresty/go-rabbitmq"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 	cmsgp "github.com/franciscosbf/imedit/common/pkg/msgp"
 	crabbitmq "github.com/franciscosbf/imedit/common/pkg/rabbitmq"
@@ -256,6 +258,7 @@ func (s *IntegrationSuite) TestTransformImage() {
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancelCtx()
+
 	select {
 	case <-ctx.Done():
 		assert.Error(s.T(), errors.New("event wasn't received by queue consumer"))
@@ -279,5 +282,57 @@ func (s *IntegrationSuite) TestTransformImage() {
 }
 
 func (s *IntegrationSuite) TestImageNotification() {
-	// TODO: implement
+	tu, bearerToken := s.registerAndLoginUser()
+
+	publisher, err := s.rmq.NewPublisher(
+		rabbitmq.WithMandatory(),
+		rabbitmq.WithConfirmation(4*time.Second),
+	)
+	assert.NoError(s.T(), err, "failed to create publisher")
+
+	header := http.Header{}
+	header.Add("Authorization", bearerToken)
+	header.Add("Sec-WebSocket-Version", "boda")
+
+	conn, err := s.openWsConnection(context.Background(), "/v1/image/ws", header)
+	assert.NoError(s.T(), err, "failed to open WebSocket connection")
+
+	// queue may not be ready yet
+	time.Sleep(4 * time.Second)
+
+	event := cmsgp.TransformedImageEvent{
+		ImageId:          uuid.NewString(),
+		TransformationId: uuid.NewString(),
+	}
+	epack := cmsgp.EventPack{
+		Event: &event,
+	}
+	encodedEvent := bytes.Buffer{}
+	assert.NoError(s.T(),
+		msgp.Encode(&encodedEvent, &epack),
+		"failed to encode event")
+
+	routingKey := crabbitmq.EventsRoutingKey(tu.username)
+	message := rabbitmq.Message{
+		ContentType: "application/octet-stream",
+		Body:        encodedEvent.Bytes(),
+	}
+	assert.NoError(s.T(),
+		publisher.Publish(
+			context.Background(), crabbitmq.EventsExchange, routingKey, &message,
+		),
+		"failed to publish event")
+
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 16*time.Second)
+	defer cancelCtx()
+	notification := struct {
+		Etype string                    `json:"type"`
+		Event api.TransformedImageEvent `json:"event"`
+	}{}
+	assert.NoError(s.T(), wsjson.Read(ctx, conn, &notification), "failed to read notification")
+	assert.Equal(s.T(), api.TransformedImage.String(), notification.Etype)
+	assert.Equal(s.T(), event.ImageId, notification.Event.ImageId)
+	assert.Equal(s.T(), event.TransformationId, notification.Event.TransformationId)
+
+	assert.NoError(s.T(), conn.Close(websocket.StatusNormalClosure, ""), "failed to issue close handshake")
 }

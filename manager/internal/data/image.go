@@ -430,7 +430,9 @@ func (ir *imageRepo) GetUserImageEvents(
 	admin := cli.Admin()
 
 	var q *rabbitmq.Queue
-	q, err = admin.DeclareQueue(ctx, "", rabbitmq.WithAutoDelete(), rabbitmq.WithClassicQueue())
+	q, err = admin.DeclareQueue(
+		ctx, "", rabbitmq.WithClassicQueue(),
+	)
 	if err != nil {
 		return
 	}
@@ -453,23 +455,21 @@ func (ir *imageRepo) GetUserImageEvents(
 	cancelCh := make(chan struct{})
 
 	go func() {
-		routingKey := crabbitmq.EventsRoutingKey(username)
-		queue := routingKey
 		handler := func(_ context.Context, delivery *rabbitmq.Delivery) error {
-			var event cmsgp.EventPack
+			var epack cmsgp.EventPack
 			buf := bytes.NewBuffer(delivery.Body)
-			if err := msgp.Decode(buf, &event); err != nil {
+			if err := msgp.Decode(buf, &epack); err != nil {
 				return err
 			}
 
 			select {
 			case <-cancelCh:
-			case msgs <- messageEvent{event: event}:
+			case msgs <- messageEvent{event: epack.Event}:
 			}
 
 			return nil
 		}
-		if err := consumer.Consume(context.Background(), queue, handler); err != nil {
+		if err := consumer.Consume(context.Background(), q.Name, handler); err != nil {
 			msgs <- messageEvent{err: err}
 			close(cancelCh)
 		}
