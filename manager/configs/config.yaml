@@ -15,4 +15,7 @@ data:
     access_key: user
     secret_key: password
   rabbitmq:
-    source: amqp://user:password@localhost:5672/
+    endpoint: localhost:5672
+    connections: 5
+    username: user
+    password: password

@@ -134,11 +134,17 @@ func NewData(config *conf.Data) (*Data, func(), error) {
 	}
 
 	redisOpts := redis.Options{
-		Addr:         config.Redis.Endpoint,
-		Password:     config.Redis.Password,
-		DialTimeout:  config.Redis.DialTimeout.AsDuration(),
-		WriteTimeout: config.Redis.WriteTimeout.AsDuration(),
-		ReadTimeout:  config.Redis.ReadTimeout.AsDuration(),
+		Addr:     config.Redis.Endpoint,
+		Password: config.Redis.Password,
+	}
+	if dialTimeout := config.Redis.DialTimeout; dialTimeout != nil {
+		redisOpts.DialTimeout = dialTimeout.AsDuration()
+	}
+	if writeTimeout := config.Redis.WriteTimeout; writeTimeout != nil {
+		redisOpts.WriteTimeout = writeTimeout.AsDuration()
+	}
+	if readTimeout := config.Redis.ReadTimeout; readTimeout != nil {
+		redisOpts.ReadTimeout = readTimeout.AsDuration()
 	}
 	data.rdb = redis.NewClient(&redisOpts)
 	if err = data.rdb.Ping(context.Background()).Err(); err != nil {
