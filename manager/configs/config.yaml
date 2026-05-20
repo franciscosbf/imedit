@@ -1,6 +1,6 @@
 server:
   http:
-    endpoint: 0.0.0.0:8000
+    endpoint: 0.0.0.0:8080
 data:
   database:
     driver: mysql
