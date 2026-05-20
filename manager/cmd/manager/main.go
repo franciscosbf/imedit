@@ -53,7 +53,8 @@ func newApp(logger log.Logger, hs *http.Server, c *conf.Server) *kratos.App {
 
 func main() {
 	flag.Parse()
-	logger := log.With(log.NewStdLogger(os.Stdout),
+	logger := log.With(
+		log.NewStdLogger(os.Stdout),
 		"ts", log.DefaultTimestamp,
 		"caller", log.DefaultCaller,
 		"service.id", id,
@@ -67,7 +68,7 @@ func main() {
 			file.NewSource(flagconf),
 		),
 	)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.Load(); err != nil {
 		panic(err)
