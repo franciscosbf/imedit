@@ -317,8 +317,8 @@ func (ir *imageRepo) TransformStoredUserImage(
 		*mT.Format = transformations.Format.String()
 	}
 
-	rawBuf := bytes.Buffer{}
-	if err := msgp.Encode(&rawBuf, &mT); err != nil {
+	buf := bytes.Buffer{}
+	if err := msgp.Encode(&buf, &mT); err != nil {
 		return nil, err
 	}
 
@@ -336,7 +336,7 @@ func (ir *imageRepo) TransformStoredUserImage(
 	routingKey := crabbitmq.TransformationsRoutingKey(username, imageId)
 	message := &rabbitmq.Message{
 		ContentType: "application/octet-stream",
-		Body:        rawBuf.Bytes(),
+		Body:        buf.Bytes(),
 	}
 	deliveryOpts := rabbitmq.DeliveryOptions{
 		MessageID: uuid.NewString(),

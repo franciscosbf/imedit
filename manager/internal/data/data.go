@@ -61,7 +61,7 @@ func (d *Data) declareExchange(name, kind string, opts ...rabbitmq.ExchangeOptio
 		name, rabbitmq.ExchangeType(kind), opts...,
 	); err != nil {
 		return fmt.Errorf(
-			"failed to declare exchange %s with kind %s: %v", name, kind, err,
+			"failed to declare RabbitMQ exchange %s with kind %s: %v", name, kind, err,
 		)
 	}
 
