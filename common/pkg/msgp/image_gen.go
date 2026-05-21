@@ -254,16 +254,16 @@ func (z *FailedImageTranformationEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "image_id":
-			z.ImageId, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "ImageId")
-				return
-			}
 		case "transformation_id":
 			z.TransformationId, err = dc.ReadString()
 			if err != nil {
 				err = msgp.WrapError(err, "TransformationId")
+				return
+			}
+		case "image_id":
+			z.ImageId, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "ImageId")
 				return
 			}
 		case "reason":
@@ -286,24 +286,24 @@ func (z *FailedImageTranformationEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z FailedImageTranformationEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 3
-	// write "image_id"
-	err = en.Append(0x83, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.ImageId)
-	if err != nil {
-		err = msgp.WrapError(err, "ImageId")
-		return
-	}
 	// write "transformation_id"
-	err = en.Append(0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	err = en.Append(0x83, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	if err != nil {
 		return
 	}
 	err = en.WriteString(z.TransformationId)
 	if err != nil {
 		err = msgp.WrapError(err, "TransformationId")
+		return
+	}
+	// write "image_id"
+	err = en.Append(0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ImageId)
+	if err != nil {
+		err = msgp.WrapError(err, "ImageId")
 		return
 	}
 	// write "reason"
@@ -323,12 +323,12 @@ func (z FailedImageTranformationEvent) EncodeMsg(en *msgp.Writer) (err error) {
 func (z FailedImageTranformationEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 3
-	// string "image_id"
-	o = append(o, 0x83, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
-	o = msgp.AppendString(o, z.ImageId)
 	// string "transformation_id"
-	o = append(o, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	o = append(o, 0x83, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	o = msgp.AppendString(o, z.TransformationId)
+	// string "image_id"
+	o = append(o, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
+	o = msgp.AppendString(o, z.ImageId)
 	// string "reason"
 	o = append(o, 0xa6, 0x72, 0x65, 0x61, 0x73, 0x6f, 0x6e)
 	o = msgp.AppendString(o, z.Reason)
@@ -353,16 +353,16 @@ func (z *FailedImageTranformationEvent) UnmarshalMsg(bts []byte) (o []byte, err 
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "image_id":
-			z.ImageId, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "ImageId")
-				return
-			}
 		case "transformation_id":
 			z.TransformationId, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "TransformationId")
+				return
+			}
+		case "image_id":
+			z.ImageId, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "ImageId")
 				return
 			}
 		case "reason":
@@ -385,7 +385,7 @@ func (z *FailedImageTranformationEvent) UnmarshalMsg(bts []byte) (o []byte, err 
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z FailedImageTranformationEvent) Msgsize() (s int) {
-	s = 1 + 9 + msgp.StringPrefixSize + len(z.ImageId) + 18 + msgp.StringPrefixSize + len(z.TransformationId) + 7 + msgp.StringPrefixSize + len(z.Reason)
+	s = 1 + 18 + msgp.StringPrefixSize + len(z.TransformationId) + 9 + msgp.StringPrefixSize + len(z.ImageId) + 7 + msgp.StringPrefixSize + len(z.Reason)
 	return
 }
 
@@ -1159,16 +1159,16 @@ func (z *TransformedImageEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "image_id":
-			z.ImageId, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "ImageId")
-				return
-			}
 		case "transformation_id":
 			z.TransformationId, err = dc.ReadString()
 			if err != nil {
 				err = msgp.WrapError(err, "TransformationId")
+				return
+			}
+		case "image_id":
+			z.ImageId, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "ImageId")
 				return
 			}
 		default:
@@ -1185,24 +1185,24 @@ func (z *TransformedImageEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z TransformedImageEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 2
-	// write "image_id"
-	err = en.Append(0x82, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.ImageId)
-	if err != nil {
-		err = msgp.WrapError(err, "ImageId")
-		return
-	}
 	// write "transformation_id"
-	err = en.Append(0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	err = en.Append(0x82, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	if err != nil {
 		return
 	}
 	err = en.WriteString(z.TransformationId)
 	if err != nil {
 		err = msgp.WrapError(err, "TransformationId")
+		return
+	}
+	// write "image_id"
+	err = en.Append(0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ImageId)
+	if err != nil {
+		err = msgp.WrapError(err, "ImageId")
 		return
 	}
 	return
@@ -1212,12 +1212,12 @@ func (z TransformedImageEvent) EncodeMsg(en *msgp.Writer) (err error) {
 func (z TransformedImageEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 2
-	// string "image_id"
-	o = append(o, 0x82, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
-	o = msgp.AppendString(o, z.ImageId)
 	// string "transformation_id"
-	o = append(o, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	o = append(o, 0x82, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	o = msgp.AppendString(o, z.TransformationId)
+	// string "image_id"
+	o = append(o, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
+	o = msgp.AppendString(o, z.ImageId)
 	return
 }
 
@@ -1239,16 +1239,16 @@ func (z *TransformedImageEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "image_id":
-			z.ImageId, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "ImageId")
-				return
-			}
 		case "transformation_id":
 			z.TransformationId, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "TransformationId")
+				return
+			}
+		case "image_id":
+			z.ImageId, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "ImageId")
 				return
 			}
 		default:
@@ -1265,6 +1265,6 @@ func (z *TransformedImageEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z TransformedImageEvent) Msgsize() (s int) {
-	s = 1 + 9 + msgp.StringPrefixSize + len(z.ImageId) + 18 + msgp.StringPrefixSize + len(z.TransformationId)
+	s = 1 + 18 + msgp.StringPrefixSize + len(z.TransformationId) + 9 + msgp.StringPrefixSize + len(z.ImageId)
 	return
 }

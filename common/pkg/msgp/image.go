@@ -116,8 +116,8 @@ func (ep *EventPack) DecodeMsg(r *msgp.Reader) (err error) {
 }
 
 type TransformedImageEvent struct {
-	ImageId          string `msg:"image_id"`
 	TransformationId string `msg:"transformation_id"`
+	ImageId          string `msg:"image_id"`
 }
 
 func (*TransformedImageEvent) Type() EventType {
@@ -125,8 +125,8 @@ func (*TransformedImageEvent) Type() EventType {
 }
 
 type FailedImageTranformationEvent struct {
-	ImageId          string `msg:"image_id"`
 	TransformationId string `msg:"transformation_id"`
+	ImageId          string `msg:"image_id"`
 	Reason           string `msg:"reason"`
 }
 
