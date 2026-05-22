@@ -7,46 +7,13 @@ import (
 	iv1 "manager/api/image/v1"
 	"manager/internal/auth"
 
+	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
-type ImageEncoding int
-
-func (it ImageEncoding) Supported() bool {
-	return it != notSupportedEncoding
-}
-
-const (
-	pngImage ImageEncoding = iota
-	jpegImage
-	notSupportedEncoding
-)
-
-func FromRawImageEncoding(raw string) ImageEncoding {
-	switch raw {
-	case "png":
-		return pngImage
-	case "jpeg":
-		return jpegImage
-	default:
-		return notSupportedEncoding
-	}
-}
-
-func (it ImageEncoding) String() string {
-	switch it {
-	case pngImage:
-		return "png"
-	case jpegImage:
-		return "jpeg"
-	default:
-		return "unsupported"
-	}
-}
-
 type ImageContent struct {
 	Name     string
-	Encoding ImageEncoding
+	Encoding cbiz.ImageEncoding
 	Content  []byte
 }
 
@@ -63,7 +30,7 @@ type StreamedImageId struct {
 type ImageMetadata struct {
 	ImageId      string
 	Name         string
-	Encoding     ImageEncoding
+	Encoding     cbiz.ImageEncoding
 	Size         uint32
 	Width        uint32
 	Height       uint32
@@ -73,30 +40,6 @@ type ImageMetadata struct {
 type ImagesPagination struct {
 	Page  uint32
 	Limit uint32
-}
-
-type ResizeImage struct {
-	Width  uint32
-	Height uint32
-}
-
-type CropImage struct {
-	Width  uint32
-	Height uint32
-	X      uint32
-	Y      uint32
-}
-
-type FilterImage struct {
-	Grayscale bool
-	Sepia     bool
-}
-
-type ImageTransformations struct {
-	Resize *ResizeImage
-	Crop   *CropImage
-	Rotate *uint32
-	Format *ImageEncoding
 }
 
 type ScheduledImageTransformation struct {
@@ -158,15 +101,13 @@ type ImageRepo interface {
 	TransformStoredUserImage(
 		ctx context.Context,
 		username, imageId string,
-		transformations *ImageTransformations) (*ScheduledImageTransformation, error)
+		transformations *cbiz.ImageTransformations) (*ScheduledImageTransformation, error)
 
 	GetUserImageEvents(ctx context.Context, username string) (notify func() *StreamedImageEvent, err error)
 
 	CacheUserImage(ctx context.Context, username, imageId string, image *ImageContent) error
-	EvictUserImage(ctx context.Context, username, imageId string) error
 	GetCachedUserImage(ctx context.Context, username, imageId string) (*ImageContent, error)
 	CacheUserImageMetadata(ctx context.Context, username, imageId string, metadata *ImageMetadata) error
-	EvictUserImageMetadata(ctx context.Context, username, imageId string) error
 	GetCachedUserImageMetadata(ctx context.Context, username, imageId string) (*ImageMetadata, error)
 }
 
@@ -261,7 +202,7 @@ func (iu *ImageUsecase) GetMetadata(ctx context.Context, imageId string) (*Image
 func (iu *ImageUsecase) Transform(
 	ctx context.Context,
 	imageId string,
-	transformations *ImageTransformations,
+	transformations *cbiz.ImageTransformations,
 ) (*ScheduledImageTransformation, error) {
 	if transformations.Format != nil && !transformations.Format.Supported() {
 		return nil, iv1.ErrorImageNotSupported("image format is not supported")
@@ -272,14 +213,6 @@ func (iu *ImageUsecase) Transform(
 	scheduled, err := iu.repo.TransformStoredUserImage(ctx, username, imageId, transformations)
 	if err != nil {
 		return nil, err
-	}
-
-	if err := iu.repo.EvictUserImage(ctx, username, imageId); err != nil {
-		iu.log.Warnf("Failed to evict cached image %s of user %s: %v", username, imageId, err)
-	}
-
-	if err := iu.repo.EvictUserImageMetadata(ctx, username, imageId); err != nil {
-		iu.log.Warnf("Failed to evict cached image metadata %s of user %s: %v", username, imageId, err)
 	}
 
 	return scheduled, err

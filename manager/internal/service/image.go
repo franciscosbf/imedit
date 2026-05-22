@@ -7,6 +7,7 @@ import (
 	api "manager/api/image/v1"
 	"manager/internal/biz"
 
+	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
@@ -20,7 +21,7 @@ func (s *ImageService) UploadImage(ctx context.Context, req *api.ImageUpload) (*
 
 	image := biz.ImageContent{
 		Name:     req.Image.Name,
-		Encoding: biz.FromRawImageEncoding(req.Image.Encoding),
+		Encoding: cbiz.FromRawImageEncoding(req.Image.Encoding),
 		Content:  req.Image.Content,
 	}
 
@@ -108,17 +109,17 @@ func (s *ImageService) GetImageMeta(ctx context.Context, req *api.Image) (*api.I
 func (s *ImageService) TransformImage(ctx context.Context, req *api.ImageTransformations) (*api.ScheduledImageTransformation, error) {
 	s.log.WithContext(ctx).Infof("TransformImage %s", req.ImageId)
 
-	transformations := biz.ImageTransformations{
+	transformations := cbiz.ImageTransformations{
 		Rotate: req.Transformations.Rotate,
 	}
 	if resize := req.Transformations.Resize; resize != nil {
-		transformations.Resize = &biz.ResizeImage{
+		transformations.Resize = &cbiz.ResizeImage{
 			Width:  resize.Width,
 			Height: resize.Height,
 		}
 	}
 	if crop := req.Transformations.Crop; crop != nil {
-		transformations.Crop = &biz.CropImage{
+		transformations.Crop = &cbiz.CropImage{
 			Width:  crop.Width,
 			Height: crop.Height,
 			X:      crop.X,
@@ -126,7 +127,7 @@ func (s *ImageService) TransformImage(ctx context.Context, req *api.ImageTransfo
 		}
 	}
 	if format := req.Transformations.Format; format != nil {
-		format := biz.FromRawImageEncoding(*format)
+		format := cbiz.FromRawImageEncoding(*format)
 		transformations.Format = &format
 	}
 

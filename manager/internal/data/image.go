@@ -18,6 +18,8 @@ import (
 	"manager/msgp/image"
 
 	"github.com/cloudresty/go-rabbitmq"
+	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
+	cdata "github.com/franciscosbf/imedit/common/pkg/data"
 	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 	cmsgp "github.com/franciscosbf/imedit/common/pkg/msgp"
 	crabbitmq "github.com/franciscosbf/imedit/common/pkg/rabbitmq"
@@ -43,42 +45,6 @@ type messageEvent struct {
 	err   error
 }
 
-type objectId struct {
-	username string
-	imageId  string
-}
-
-func (oid objectId) String() string {
-	return oid.username + "." + oid.imageId
-}
-
-func newObjectId(username, imageId string) objectId {
-	return objectId{
-		username: username,
-		imageId:  imageId,
-	}
-}
-
-type cachedImageId objectId
-
-func (coid cachedImageId) String() string {
-	return coid.username + "." + coid.imageId + ".image"
-}
-
-func newCachedImageId(username, imageId string) cachedImageId {
-	return cachedImageId(newObjectId(username, imageId))
-}
-
-type cachedMetadataId objectId
-
-func (coid cachedMetadataId) String() string {
-	return coid.username + "." + coid.imageId + ".metadata"
-}
-
-func newCachedMetadataId(username, imageId string) cachedMetadataId {
-	return cachedMetadataId(newObjectId(username, imageId))
-}
-
 func isObjectNotFoundErr(err error) bool {
 	return minio.ToErrorResponse(err).Code == "NoSuchKey"
 }
@@ -95,11 +61,11 @@ type imageRepo struct {
 	transformationTimeout time.Duration
 }
 
-func (ir *imageRepo) getObject(ctx context.Context, objId objectId) (objectContent, error) {
+func (ir *imageRepo) getObject(ctx context.Context, objId cdata.ObjectId) (objectContent, error) {
 	obj, err := ir.data.mdb.GetObject(ctx, cminio.ImagesBucket, objId.String(), minio.GetObjectOptions{})
 	if err != nil {
 		if isObjectNotFoundErr(err) {
-			return objectContent{}, iv1.ErrorImageNotFound("image %s wasn't found", objId.imageId)
+			return objectContent{}, iv1.ErrorImageNotFound("image %s wasn't found", objId.ImageId)
 		}
 
 		return objectContent{}, err
@@ -131,7 +97,7 @@ func (ir *imageRepo) StoreUserImage(
 	if err != nil {
 		return nil, err
 	}
-	objId := newObjectId(username, imgId)
+	objId := cdata.NewObjectId(username, imgId)
 
 	imgConf, _, err := imd.DecodeConfig(bytes.NewBuffer(image.Content))
 	if err != nil {
@@ -201,7 +167,7 @@ func (ir *imageRepo) GetStoredUserImage(
 	ctx context.Context,
 	username, imageId string,
 ) (*biz.ImageContent, error) {
-	objId := newObjectId(username, imageId)
+	objId := cdata.NewObjectId(username, imageId)
 
 	objContent, err := ir.getObject(ctx, objId)
 	if err != nil {
@@ -210,7 +176,7 @@ func (ir *imageRepo) GetStoredUserImage(
 
 	return &biz.ImageContent{
 		Name:     objContent.name,
-		Encoding: biz.FromRawImageEncoding(objContent.encoding),
+		Encoding: cbiz.FromRawImageEncoding(objContent.encoding),
 		Content:  objContent.content,
 	}, nil
 }
@@ -258,12 +224,12 @@ func (ir *imageRepo) GetStoredUserImageMetadata(
 	ctx context.Context,
 	username, imageId string,
 ) (*biz.ImageMetadata, error) {
-	objId := newObjectId(username, imageId)
+	objId := cdata.NewObjectId(username, imageId)
 
 	objInfo, err := ir.data.mdb.StatObject(ctx, cminio.ImagesBucket, objId.String(), minio.StatObjectOptions{})
 	if err != nil {
 		if isObjectNotFoundErr(err) {
-			return nil, iv1.ErrorImageNotFound("image metadata %s wasn't found", objId.imageId)
+			return nil, iv1.ErrorImageNotFound("image metadata %s wasn't found", objId.ImageId)
 		}
 
 		return nil, err
@@ -276,7 +242,7 @@ func (ir *imageRepo) GetStoredUserImageMetadata(
 	return &biz.ImageMetadata{
 		ImageId:      usrMeta["Image-Id"],
 		Name:         usrMeta["Name"],
-		Encoding:     biz.FromRawImageEncoding(usrMeta["Encoding"]),
+		Encoding:     cbiz.FromRawImageEncoding(usrMeta["Encoding"]),
 		Size:         uint32(size),
 		Width:        uint32(width),
 		Height:       uint32(height),
@@ -287,7 +253,7 @@ func (ir *imageRepo) GetStoredUserImageMetadata(
 func (ir *imageRepo) TransformStoredUserImage(
 	ctx context.Context,
 	username, imageId string,
-	transformations *biz.ImageTransformations,
+	transformations *cbiz.ImageTransformations,
 ) (*biz.ScheduledImageTransformation, error) {
 	tId, err := genUUID()
 	if err != nil {
@@ -524,22 +490,16 @@ func (ir *imageRepo) CacheUserImage(
 	username, imageId string,
 	image *biz.ImageContent,
 ) error {
-	cachedImgId := newCachedImageId(username, imageId)
+	cachedImgId := cdata.NewCachedImageId(username, imageId)
 
 	return ir.data.rdb.Set(ctx, cachedImgId.String(), image.Content, ir.data.ch.eviction).Err()
-}
-
-func (ir *imageRepo) EvictUserImage(ctx context.Context, username, imageId string) error {
-	cachedImgId := newCachedImageId(username, imageId)
-
-	return ir.data.rdb.Del(ctx, cachedImgId.String()).Err()
 }
 
 func (ir *imageRepo) GetCachedUserImage(
 	ctx context.Context,
 	username, imageId string,
 ) (*biz.ImageContent, error) {
-	cachedImgId := newCachedImageId(username, imageId)
+	cachedImgId := cdata.NewCachedImageId(username, imageId)
 
 	cmd := ir.data.rdb.Get(ctx, cachedImgId.String())
 	if err := cmd.Err(); err != nil {
@@ -563,7 +523,7 @@ func (ir *imageRepo) CacheUserImageMetadata(
 	username, imageId string,
 	metadata *biz.ImageMetadata,
 ) error {
-	cachedMetaId := newCachedMetadataId(username, imageId)
+	cachedMetaId := cdata.NewCachedMetadataId(username, imageId)
 
 	cMeta := image.Metadata{
 		ImageId:      metadata.ImageId,
@@ -582,17 +542,11 @@ func (ir *imageRepo) CacheUserImageMetadata(
 	return ir.data.rdb.Set(ctx, cachedMetaId.String(), rawBuf.Bytes(), ir.data.ch.eviction).Err()
 }
 
-func (ir *imageRepo) EvictUserImageMetadata(ctx context.Context, username, imageId string) error {
-	cachedMetaId := newCachedMetadataId(username, imageId)
-
-	return ir.data.rdb.Del(ctx, cachedMetaId.String()).Err()
-}
-
 func (ir *imageRepo) GetCachedUserImageMetadata(
 	ctx context.Context,
 	username, imageId string,
 ) (*biz.ImageMetadata, error) {
-	cachedMetaId := newCachedMetadataId(username, imageId)
+	cachedMetaId := cdata.NewCachedMetadataId(username, imageId)
 
 	cmd := ir.data.rdb.Get(ctx, cachedMetaId.String())
 	if err := cmd.Err(); err != nil {
@@ -613,7 +567,7 @@ func (ir *imageRepo) GetCachedUserImageMetadata(
 	return &biz.ImageMetadata{
 		ImageId:  cMeta.ImageId,
 		Name:     cMeta.Name,
-		Encoding: biz.FromRawImageEncoding(cMeta.Type),
+		Encoding: cbiz.FromRawImageEncoding(cMeta.Type),
 		Size:     cMeta.Size,
 		Width:    cMeta.Width,
 		Height:   cMeta.Height,
