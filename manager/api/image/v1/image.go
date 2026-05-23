@@ -35,16 +35,16 @@ type Pagination struct {
 	Limit uint32 `json:"limit"`
 }
 
-type ResizeImage struct {
-	Width  uint32 `json:"width"`
-	Height uint32 `json:"height"`
-}
-
 type CropImage struct {
 	Width  uint32 `json:"width"`
 	Height uint32 `json:"height"`
 	X      uint32 `json:"x"`
 	Y      uint32 `json:"y"`
+}
+
+type ResizeImage struct {
+	Width  uint32 `json:"width"`
+	Height uint32 `json:"height"`
 }
 
 type FilterImage struct {
@@ -53,8 +53,8 @@ type FilterImage struct {
 }
 
 type TransformImage struct {
-	Resize *ResizeImage `json:"resize"`
 	Crop   *CropImage   `json:"crop"`
+	Resize *ResizeImage `json:"resize"`
 	Rotate *uint32      `json:"rotate"`
 	Format *string      `json:"format"`
 }

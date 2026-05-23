@@ -3,40 +3,35 @@ package biz
 type ImageEncoding int
 
 func (it ImageEncoding) Supported() bool {
-	return it != notSupportedEncoding
+	return it != NotSupportedEncoding
 }
 
 const (
-	pngImage ImageEncoding = iota
-	jpegImage
-	notSupportedEncoding
+	PngImage ImageEncoding = iota
+	JpegImage
+	NotSupportedEncoding
 )
 
 func FromRawImageEncoding(raw string) ImageEncoding {
 	switch raw {
 	case "png":
-		return pngImage
+		return PngImage
 	case "jpeg":
-		return jpegImage
+		return JpegImage
 	default:
-		return notSupportedEncoding
+		return NotSupportedEncoding
 	}
 }
 
 func (it ImageEncoding) String() string {
 	switch it {
-	case pngImage:
+	case PngImage:
 		return "png"
-	case jpegImage:
+	case JpegImage:
 		return "jpeg"
 	default:
 		return "unsupported"
 	}
-}
-
-type ResizeImage struct {
-	Width  uint32
-	Height uint32
 }
 
 type CropImage struct {
@@ -46,14 +41,19 @@ type CropImage struct {
 	Y      uint32
 }
 
+type ResizeImage struct {
+	Width  uint32
+	Height uint32
+}
+
 type FilterImage struct {
 	Grayscale bool
 	Sepia     bool
 }
 
 type ImageTransformations struct {
-	Resize *ResizeImage
 	Crop   *CropImage
+	Resize *ResizeImage
 	Rotate *uint32
 	Format *ImageEncoding
 }

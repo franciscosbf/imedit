@@ -112,18 +112,18 @@ func (s *ImageService) TransformImage(ctx context.Context, req *api.ImageTransfo
 	transformations := cbiz.ImageTransformations{
 		Rotate: req.Transformations.Rotate,
 	}
-	if resize := req.Transformations.Resize; resize != nil {
-		transformations.Resize = &cbiz.ResizeImage{
-			Width:  resize.Width,
-			Height: resize.Height,
-		}
-	}
 	if crop := req.Transformations.Crop; crop != nil {
 		transformations.Crop = &cbiz.CropImage{
 			Width:  crop.Width,
 			Height: crop.Height,
 			X:      crop.X,
 			Y:      crop.Y,
+		}
+	}
+	if resize := req.Transformations.Resize; resize != nil {
+		transformations.Resize = &cbiz.ResizeImage{
+			Width:  resize.Width,
+			Height: resize.Height,
 		}
 	}
 	if format := req.Transformations.Format; format != nil {

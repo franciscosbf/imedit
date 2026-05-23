@@ -106,7 +106,7 @@ func (ir *imageRepo) StoreUserImage(
 
 	imgBuf := bytes.NewBuffer(image.Content)
 	imgBufLen := imgBuf.Len()
-	userMetadata := map[string]string{
+	usrMeta := map[string]string{
 		"Image-Id": imgId,
 		"Name":     image.Name,
 		"Encoding": image.Encoding.String(),
@@ -142,7 +142,7 @@ func (ir *imageRepo) StoreUserImage(
 			objId.String(), imgBuf, int64(imgBuf.Len()),
 			minio.PutObjectOptions{
 				ContentType:  "application/octet-stream",
-				UserMetadata: userMetadata,
+				UserMetadata: usrMeta,
 			},
 		); err != nil {
 			return err
@@ -265,18 +265,18 @@ func (ir *imageRepo) TransformStoredUserImage(
 		ImageId:          imageId,
 		Rotate:           transformations.Rotate,
 	}
-	if transformations.Resize != nil {
-		mT.Resize = &cmsgp.Resize{
-			Width:  transformations.Resize.Width,
-			Height: transformations.Resize.Height,
-		}
-	}
 	if transformations.Crop != nil {
 		mT.Crop = new(cmsgp.Crop)
 		mT.Crop.Width = transformations.Crop.Width
 		mT.Crop.Height = transformations.Crop.Height
 		mT.Crop.X = transformations.Crop.X
 		mT.Crop.Y = transformations.Crop.Y
+	}
+	if transformations.Resize != nil {
+		mT.Resize = &cmsgp.Resize{
+			Width:  transformations.Resize.Width,
+			Height: transformations.Resize.Height,
+		}
 	}
 	if transformations.Format != nil {
 		mT.Format = new(string)

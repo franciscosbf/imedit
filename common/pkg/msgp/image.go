@@ -30,8 +30,8 @@ type Transformations struct {
 	TransformationId string  `msg:"transformation_id"`
 	Username         string  `msg:"username"`
 	ImageId          string  `msg:"image_id"`
-	Resize           *Resize `msg:"resize"`
 	Crop             *Crop   `msg:"crop"`
+	Resize           *Resize `msg:"resize"`
 	Rotate           *uint32 `msg:"rotate"`
 	Format           *string `msg:"format"`
 }
