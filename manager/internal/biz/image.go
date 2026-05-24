@@ -137,12 +137,16 @@ func (iu *ImageUsecase) Get(ctx context.Context, imageId string) (*ImageContent,
 	if image, err := iu.repo.GetCachedUserImage(ctx, username, imageId); image != nil {
 		return image, nil
 	} else if err != nil {
-		iu.log.Warnf("Failed to retrieve from cache image %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to retrieve from cache image %s of user %s: %v", imageId, username, err)
 	}
 
 	image, err := iu.repo.GetStoredUserImage(ctx, username, imageId)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := iu.repo.CacheUserImage(ctx, username, imageId, image); err != nil {
+		iu.log.Warnf("Failed  cache image %s of user %s: %v", imageId, username, err)
 	}
 
 	return image, nil
@@ -184,7 +188,7 @@ func (iu *ImageUsecase) GetMetadata(ctx context.Context, imageId string) (*Image
 	if metadata, err := iu.repo.GetCachedUserImageMetadata(ctx, username, imageId); metadata != nil {
 		return metadata, nil
 	} else if err != nil {
-		iu.log.Warnf("Failed to retrieve from cache image metadata %s of user %s: %v", username, imageId, err)
+		iu.log.Warnf("Failed to retrieve from cache image metadata %s of user %s: %v", imageId, username, err)
 	}
 
 	metadata, err := iu.repo.GetStoredUserImageMetadata(ctx, username, imageId)
@@ -193,7 +197,7 @@ func (iu *ImageUsecase) GetMetadata(ctx context.Context, imageId string) (*Image
 	}
 
 	if err := iu.repo.CacheUserImageMetadata(ctx, username, imageId, metadata); err != nil {
-		iu.log.Warn("Failed to cache image metadata %s of user %s: %v", username, imageId, err)
+		iu.log.Warn("Failed to cache image metadata %s of user %s: %v", imageId, username, err)
 	}
 
 	return metadata, nil

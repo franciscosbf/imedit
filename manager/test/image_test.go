@@ -73,7 +73,7 @@ func (s *IntegrationSuite) TestUploadImage() {
 	assert.Equal(s.T(), "0001-01-01 00:00:00 +0000 UTC", metadata.LastModified)
 	assert.NoError(s.T(), err)
 
-	obj, err := s.mdb.GetObject(
+	obj, err := s.Mdb.GetObject(
 		context.Background(), cminio.ImagesBucket, tu.username+"."+metadata.ImageId, minio.GetObjectOptions{},
 	)
 	assert.NoError(s.T(), err, "failed to retrieve object from bucket")
@@ -176,7 +176,7 @@ func (s *IntegrationSuite) TestGetImageMeta() {
 
 	defer func() { _ = resp.Body.Close() }()
 
-	objInfo, err := s.mdb.StatObject(
+	objInfo, err := s.Mdb.StatObject(
 		context.Background(), cminio.ImagesBucket, tu.username+"."+imageId, minio.GetObjectOptions{},
 	)
 	assert.NoError(s.T(), err, "failed to retrieve object from bucket")
@@ -197,7 +197,7 @@ func (s *IntegrationSuite) TestTransformImage() {
 	tu, bearerToken := s.registerAndLoginUser()
 	imageId, _ := s.uploadImage("./image/nature.jpeg", bearerToken)
 
-	admin := s.rmq.Admin()
+	admin := s.Rmq.Admin()
 
 	q, err := admin.DeclareQueue(context.Background(), "", rabbitmq.WithAutoDelete(), rabbitmq.WithClassicQueue())
 	assert.NoError(s.T(), err, "failed to declare queue")
@@ -208,7 +208,7 @@ func (s *IntegrationSuite) TestTransformImage() {
 		),
 		"failed to bind queue to exchange %s", crabbitmq.TransformationsExchange)
 
-	consumer, err := s.rmq.NewConsumer(
+	consumer, err := s.Rmq.NewConsumer(
 		rabbitmq.WithExclusiveConsumer(), rabbitmq.WithAutoAck(),
 	)
 	assert.NoError(s.T(), err, "failed to create queue consumer")
@@ -284,7 +284,7 @@ func (s *IntegrationSuite) TestTransformImage() {
 func (s *IntegrationSuite) TestImageNotification() {
 	tu, bearerToken := s.registerAndLoginUser()
 
-	publisher, err := s.rmq.NewPublisher(
+	publisher, err := s.Rmq.NewPublisher(
 		rabbitmq.WithMandatory(),
 		rabbitmq.WithConfirmation(4*time.Second),
 	)
