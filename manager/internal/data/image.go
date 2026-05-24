@@ -106,7 +106,7 @@ func (ir *imageRepo) StoreUserImage(
 
 	imgBuf := bytes.NewBuffer(image.Content)
 	imgBufLen := imgBuf.Len()
-	usrMeta := map[string]string{
+	userMetadata := map[string]string{
 		"Image-Id": imgId,
 		"Name":     image.Name,
 		"Encoding": image.Encoding.String(),
@@ -142,7 +142,7 @@ func (ir *imageRepo) StoreUserImage(
 			objId.String(), imgBuf, int64(imgBuf.Len()),
 			minio.PutObjectOptions{
 				ContentType:  "application/octet-stream",
-				UserMetadata: usrMeta,
+				UserMetadata: userMetadata,
 			},
 		); err != nil {
 			return err

@@ -28,12 +28,10 @@ import (
 	"manager/internal/service"
 
 	"github.com/coder/websocket"
-	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 	ctest "github.com/franciscosbf/imedit/common/pkg/test"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
-	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -317,12 +315,6 @@ func (s *IntegrationSuite) setupMySQLDatabase() {
 		"failed to create schema for %v database")
 }
 
-func (s *IntegrationSuite) setupMinIODatabase() {
-	assert.NoError(s.T(),
-		s.Mdb.MakeBucket(context.Background(), cminio.ImagesBucket, minio.MakeBucketOptions{}),
-		"failed to create bucket %s in MinIO database")
-}
-
 func (s *IntegrationSuite) setupAppAndRun() {
 	var err error
 
@@ -398,7 +390,7 @@ func (s *IntegrationSuite) SetupSuite() {
 	s.setupRabbitMQConnection()
 
 	s.setupMySQLDatabase()
-	s.setupMinIODatabase()
+	s.SetupMinIODatabase()
 
 	s.setupAppAndRun()
 	s.setupAppConnection()
@@ -413,22 +405,13 @@ func (s *IntegrationSuite) TeardownSuite() {
 }
 
 func (s *IntegrationSuite) AfterTest(_, _ string) {
+	s.FlushDatabases()
+
 	_, err := s.edb.User.Delete().Exec(context.Background())
 	assert.NoError(s.T(), err, "failed to delete users from MySQL database")
 
 	_, err = s.edb.Image.Delete().Exec(context.Background())
 	assert.NoError(s.T(), err, "failed to delete images from MySQL database")
-
-	imageIds := []string{}
-	for objInfo := range s.Mdb.ListObjects(context.Background(), cminio.ImagesBucket, minio.ListObjectsOptions{}) {
-		assert.NoError(s.T(), objInfo.Err, "failed to remove object from MinIO bucket %s", cminio.ImagesBucket)
-		imageIds = append(imageIds, objInfo.Key)
-	}
-	for _, imageId := range imageIds {
-		assert.NoError(s.T(),
-			s.Mdb.RemoveObject(context.Background(), cminio.ImagesBucket, imageId, minio.RemoveObjectOptions{}),
-			"failed to remove object %s from bucket ")
-	}
 }
 
 func TestIntegrationSuite(t *testing.T) {

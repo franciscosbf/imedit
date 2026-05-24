@@ -6,14 +6,14 @@ import (
 
 	"github.com/cloudresty/go-rabbitmq"
 	"github.com/docker/go-connections/nat"
+	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 	"github.com/go-redis/redis/v8"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type BaseIntegrationSuite struct {
@@ -147,7 +147,28 @@ func (s *BaseIntegrationSuite) SetupRabbitMQConnection(endpoint, username, passw
 	assert.NoError(s.T(), err, "failed to open RabbitMQ connection")
 }
 
+func (s *BaseIntegrationSuite) SetupMinIODatabase() {
+	assert.NoError(s.T(),
+		s.Mdb.MakeBucket(context.Background(), cminio.ImagesBucket, minio.MakeBucketOptions{}),
+		"failed to create bucket %s in MinIO database")
+}
+
 func (s *BaseIntegrationSuite) TeardownConnections() {
 	assert.NoError(s.T(), s.Rdb.Close(), "failed to close Redis client")
 	assert.NoError(s.T(), s.Rmq.Close(), "failed to close RabbitMQ client")
+}
+
+func (s *BaseIntegrationSuite) FlushDatabases() {
+	imageIds := []string{}
+	for objInfo := range s.Mdb.ListObjects(context.Background(), cminio.ImagesBucket, minio.ListObjectsOptions{}) {
+		assert.NoError(s.T(), objInfo.Err, "failed to remove object from MinIO bucket %s", cminio.ImagesBucket)
+		imageIds = append(imageIds, objInfo.Key)
+	}
+	for _, imageId := range imageIds {
+		assert.NoError(s.T(),
+			s.Mdb.RemoveObject(context.Background(), cminio.ImagesBucket, imageId, minio.RemoveObjectOptions{}),
+			"failed to remove object %s from bucket")
+	}
+
+	assert.NoError(s.T(), s.Rdb.FlushAll(context.Background()).Err(), "failed to flush Redis entries")
 }

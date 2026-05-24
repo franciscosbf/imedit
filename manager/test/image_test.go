@@ -293,7 +293,7 @@ func (s *IntegrationSuite) TestTransformImage() {
 
 	select {
 	case <-ctx.Done():
-		assert.Error(s.T(), errors.New("event wasn't received by queue consumer"))
+		assert.NoError(s.T(), errors.New("event wasn't received by queue consumer"))
 	case event := <-eventCh:
 		assert.NoError(s.T(), event.err)
 
