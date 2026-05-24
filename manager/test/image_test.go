@@ -16,10 +16,12 @@ import (
 
 	api "manager/api/image/v1"
 	"manager/ent/user"
+	mimage "manager/msgp/image"
 
 	"github.com/cloudresty/go-rabbitmq"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	cdata "github.com/franciscosbf/imedit/common/pkg/data"
 	cminio "github.com/franciscosbf/imedit/common/pkg/minio"
 	cmsgp "github.com/franciscosbf/imedit/common/pkg/msgp"
 	crabbitmq "github.com/franciscosbf/imedit/common/pkg/rabbitmq"
@@ -74,7 +76,10 @@ func (s *IntegrationSuite) TestUploadImage() {
 	assert.NoError(s.T(), err)
 
 	obj, err := s.Mdb.GetObject(
-		context.Background(), cminio.ImagesBucket, tu.username+"."+metadata.ImageId, minio.GetObjectOptions{},
+		context.Background(),
+		cminio.ImagesBucket,
+		cdata.NewObjectId(tu.username, metadata.ImageId).String(),
+		minio.GetObjectOptions{},
 	)
 	assert.NoError(s.T(), err, "failed to retrieve object from bucket")
 
@@ -107,7 +112,7 @@ func (s *IntegrationSuite) TestUploadImage() {
 }
 
 func (s *IntegrationSuite) TestGetSingleImage() {
-	_, bearerToken := s.registerAndLoginUser()
+	tu, bearerToken := s.registerAndLoginUser()
 	path := "./image/nature.jpeg"
 	imageId, content := s.uploadImage(path, bearerToken)
 
@@ -128,6 +133,14 @@ func (s *IntegrationSuite) TestGetSingleImage() {
 
 	_, err = mr.NextPart()
 	assert.Equal(s.T(), io.EOF, err, "expected one part only")
+
+	cmd := s.Rdb.Get(context.Background(), cdata.NewCachedImageId(tu.username, imageId).String())
+	assert.NoError(s.T(), cmd.Err(), "failed to retrieve cached image")
+
+	ccontent, err := cmd.Bytes()
+	assert.NoError(s.T(), err, "failed to get cached image")
+
+	assert.ElementsMatch(s.T(), content, ccontent)
 }
 
 func (s *IntegrationSuite) TestGetPaginatedImage() {
@@ -177,13 +190,15 @@ func (s *IntegrationSuite) TestGetImageMeta() {
 	defer func() { _ = resp.Body.Close() }()
 
 	objInfo, err := s.Mdb.StatObject(
-		context.Background(), cminio.ImagesBucket, tu.username+"."+imageId, minio.GetObjectOptions{},
+		context.Background(),
+		cminio.ImagesBucket,
+		cdata.NewObjectId(tu.username, imageId).String(),
+		minio.GetObjectOptions{},
 	)
 	assert.NoError(s.T(), err, "failed to retrieve object from bucket")
 
 	metadata := api.ImageMeta{}
 	s.decodeJsonBody(resp.Body, &metadata)
-	assert.NoError(s.T(), uuid.Validate(metadata.ImageId))
 	assert.Equal(s.T(), imageId, metadata.ImageId)
 	assert.Equal(s.T(), "nature.jpeg", metadata.Name)
 	assert.Equal(s.T(), "jpeg", metadata.Encoding)
@@ -191,6 +206,23 @@ func (s *IntegrationSuite) TestGetImageMeta() {
 	assert.EqualValues(s.T(), imgConf.Width, metadata.Width)
 	assert.EqualValues(s.T(), imgConf.Height, metadata.Height)
 	assert.Equal(s.T(), objInfo.LastModified.UTC().String(), metadata.LastModified)
+
+	cmd := s.Rdb.Get(context.Background(), cdata.NewCachedMetadataId(tu.username, imageId).String())
+	assert.NoError(s.T(), cmd.Err(), "failed to retrieve cached image metadata")
+
+	raw, err := cmd.Bytes()
+	assert.NoError(s.T(), err, "failed to get raw bytes of cached image metadata")
+
+	var cmeta mimage.Metadata
+	buf := bytes.NewBuffer(raw)
+	assert.NoError(s.T(), msgp.Decode(buf, &cmeta), "failed to decode cached image metadata")
+	assert.Equal(s.T(), metadata.ImageId, cmeta.ImageId)
+	assert.Equal(s.T(), metadata.Name, cmeta.Name)
+	assert.Equal(s.T(), metadata.Encoding, cmeta.Encoding)
+	assert.EqualValues(s.T(), metadata.Size, cmeta.Size)
+	assert.EqualValues(s.T(), metadata.Width, cmeta.Width)
+	assert.EqualValues(s.T(), metadata.Height, cmeta.Height)
+	assert.Equal(s.T(), metadata.LastModified, cmeta.LastModified.UTC().String())
 }
 
 func (s *IntegrationSuite) TestTransformImage() {

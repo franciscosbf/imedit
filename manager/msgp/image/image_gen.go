@@ -36,10 +36,10 @@ func (z *Metadata) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Name")
 				return
 			}
-		case "type":
-			z.Type, err = dc.ReadString()
+		case "encoding":
+			z.Encoding, err = dc.ReadString()
 			if err != nil {
-				err = msgp.WrapError(err, "Type")
+				err = msgp.WrapError(err, "Encoding")
 				return
 			}
 		case "size":
@@ -100,14 +100,14 @@ func (z *Metadata) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "Name")
 		return
 	}
-	// write "type"
-	err = en.Append(0xa4, 0x74, 0x79, 0x70, 0x65)
+	// write "encoding"
+	err = en.Append(0xa8, 0x65, 0x6e, 0x63, 0x6f, 0x64, 0x69, 0x6e, 0x67)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.Type)
+	err = en.WriteString(z.Encoding)
 	if err != nil {
-		err = msgp.WrapError(err, "Type")
+		err = msgp.WrapError(err, "Encoding")
 		return
 	}
 	// write "size"
@@ -163,9 +163,9 @@ func (z *Metadata) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "name"
 	o = append(o, 0xa4, 0x6e, 0x61, 0x6d, 0x65)
 	o = msgp.AppendString(o, z.Name)
-	// string "type"
-	o = append(o, 0xa4, 0x74, 0x79, 0x70, 0x65)
-	o = msgp.AppendString(o, z.Type)
+	// string "encoding"
+	o = append(o, 0xa8, 0x65, 0x6e, 0x63, 0x6f, 0x64, 0x69, 0x6e, 0x67)
+	o = msgp.AppendString(o, z.Encoding)
 	// string "size"
 	o = append(o, 0xa4, 0x73, 0x69, 0x7a, 0x65)
 	o = msgp.AppendUint32(o, z.Size)
@@ -211,10 +211,10 @@ func (z *Metadata) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Name")
 				return
 			}
-		case "type":
-			z.Type, bts, err = msgp.ReadStringBytes(bts)
+		case "encoding":
+			z.Encoding, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "Type")
+				err = msgp.WrapError(err, "Encoding")
 				return
 			}
 		case "size":
@@ -255,6 +255,6 @@ func (z *Metadata) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Metadata) Msgsize() (s int) {
-	s = 1 + 9 + msgp.StringPrefixSize + len(z.ImageId) + 5 + msgp.StringPrefixSize + len(z.Name) + 5 + msgp.StringPrefixSize + len(z.Type) + 5 + msgp.Uint32Size + 6 + msgp.Uint32Size + 7 + msgp.Uint32Size + 14 + msgp.TimeSize
+	s = 1 + 9 + msgp.StringPrefixSize + len(z.ImageId) + 5 + msgp.StringPrefixSize + len(z.Name) + 9 + msgp.StringPrefixSize + len(z.Encoding) + 5 + msgp.Uint32Size + 6 + msgp.Uint32Size + 7 + msgp.Uint32Size + 14 + msgp.TimeSize
 	return
 }

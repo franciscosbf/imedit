@@ -528,18 +528,18 @@ func (ir *imageRepo) CacheUserImageMetadata(
 	cMeta := image.Metadata{
 		ImageId:      metadata.ImageId,
 		Name:         metadata.Name,
-		Type:         metadata.Encoding.String(),
+		Encoding:     metadata.Encoding.String(),
 		Size:         metadata.Size,
 		Width:        metadata.Width,
 		Height:       metadata.Height,
 		LastModified: metadata.LastModified,
 	}
-	rawBuf := bytes.Buffer{}
-	if err := msgp.Encode(&rawBuf, &cMeta); err != nil {
+	buf := bytes.Buffer{}
+	if err := msgp.Encode(&buf, &cMeta); err != nil {
 		return err
 	}
 
-	return ir.data.rdb.Set(ctx, cachedMetaId.String(), rawBuf.Bytes(), ir.data.ch.eviction).Err()
+	return ir.data.rdb.Set(ctx, cachedMetaId.String(), buf.Bytes(), ir.data.ch.eviction).Err()
 }
 
 func (ir *imageRepo) GetCachedUserImageMetadata(
@@ -567,7 +567,7 @@ func (ir *imageRepo) GetCachedUserImageMetadata(
 	return &biz.ImageMetadata{
 		ImageId:  cMeta.ImageId,
 		Name:     cMeta.Name,
-		Encoding: cbiz.FromRawImageEncoding(cMeta.Type),
+		Encoding: cbiz.FromRawImageEncoding(cMeta.Encoding),
 		Size:     cMeta.Size,
 		Width:    cMeta.Width,
 		Height:   cMeta.Height,
