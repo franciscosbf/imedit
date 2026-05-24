@@ -1,0 +1,16 @@
+server:
+  receiver:
+    endpoint: localhost:5672
+    connections: 5
+    username: user
+    password: password
+data:
+  redis:
+    endpoint: localhost:6379
+    dial_timeout: 1s
+    read_timeout: 1s
+    write_timeout: 1s
+  minio:
+    endpoint: localhost:9000
+    access_key: user
+    secret_key: password
