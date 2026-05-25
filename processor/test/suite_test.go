@@ -35,6 +35,7 @@ func (s *IntegrationSuite) setupAppConfig() {
 				Username:    "user",
 				Password:    "password",
 			},
+			Publisher: &conf.Server_Publisher{},
 		},
 		Data: &conf.Data{
 			Redis: &conf.Data_Redis{
