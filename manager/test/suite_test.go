@@ -278,7 +278,9 @@ func (s *IntegrationSuite) setupAppConfig() {
 				Password:    "password",
 			},
 			Cache: &conf.Data_Cache{},
-			Event: &conf.Data_Event{},
+			Events: &conf.Data_Events{
+				Publisher: &conf.Data_Events_Publisher{},
+			},
 		},
 	}
 }

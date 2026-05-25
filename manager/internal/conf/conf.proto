@@ -62,8 +62,14 @@ message Data {
     google.protobuf.Duration eviction_time = 1;
   }
 
-  message Event {
-    google.protobuf.Duration transformation_timeout = 1;
+  message Events {
+    message Publisher {
+      google.protobuf.Duration timeout = 1;
+      uint32 concurrency = 2;
+      uint32 buffer_size = 3;
+    }
+
+    Publisher publisher = 1;
   }
 
   Database database = 1;
@@ -71,5 +77,5 @@ message Data {
   MinIO minio = 3;
   RabbitMQ rabbitmq = 4;
   Cache cache = 5;
-  Event event = 6;
+  Events events = 6;
 }

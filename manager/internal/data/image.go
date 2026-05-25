@@ -288,17 +288,6 @@ func (ir *imageRepo) TransformStoredUserImage(
 		return nil, err
 	}
 
-	client, err := ir.data.rmq.Get()
-	if err != nil {
-		return nil, err
-	}
-
-	publisher, err := client.NewPublisher(rabbitmq.WithDeliveryAssurance())
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = publisher.Close() }()
-
 	routingKey := crabbitmq.TransformationsRoutingKey(username, imageId)
 	message := &rabbitmq.Message{
 		ContentType: "application/octet-stream",
@@ -309,6 +298,7 @@ func (ir *imageRepo) TransformStoredUserImage(
 		Mandatory: true,
 		Callback: func(_ string, outcome rabbitmq.DeliveryOutcome, errorMessage string) {
 			var msg string
+
 			switch outcome {
 			case rabbitmq.DeliverySuccess:
 				return
@@ -321,27 +311,6 @@ func (ir *imageRepo) TransformStoredUserImage(
 			}
 			msg = fmt.Sprintf("%s: %s", msg, errorMessage)
 
-			client, err := ir.data.rmq.Get()
-			if err != nil {
-				log.Warnf(
-					"Failed to obtain RabbitMQ client to "+
-						"deliver transformation error '%s': %v", msg, err,
-				)
-
-				return
-			}
-
-			publisher, err := client.NewPublisher()
-			if err != nil {
-				log.Warnf(
-					"Failed to create RabbitMQ event publisher to "+
-						"deliver transformation error '%s': %v", msg, err,
-				)
-
-				return
-			}
-			defer func() { _ = publisher.Close() }()
-
 			event := cmsgp.EventPack{
 				Event: &cmsgp.FailedImageTranformationEvent{
 					ImageId:          imageId,
@@ -349,9 +318,9 @@ func (ir *imageRepo) TransformStoredUserImage(
 					Reason:           msg,
 				},
 			}
-			rawBuf := bytes.Buffer{}
-			if err := msgp.Encode(&rawBuf, &event); err != nil {
-				log.Warnf(
+			buf := bytes.Buffer{}
+			if err := msgp.Encode(&buf, &event); err != nil {
+				ir.log.Warnf(
 					"Failed to encode UnexpectedErrorEvent with "+
 						"deliver transformation error '%s': %v", msg, err,
 				)
@@ -360,23 +329,29 @@ func (ir *imageRepo) TransformStoredUserImage(
 			}
 
 			routingKey := crabbitmq.EventsRoutingKey(username)
-			if err := publisher.Publish(
-				context.Background(), crabbitmq.EventsExchange, routingKey, message,
-			); err != nil {
-				log.Warnf(
-					"Failed to publish UnexpectedErrorEvent with "+
-						"deliver transformation error '%s' to '%s': %v",
-					msg, routingKey, err,
-				)
+			message := &rabbitmq.Message{
+				ContentType: "application/octet-stream",
+				Body:        buf.Bytes(),
 			}
+
+			publishing := &publishing{
+				exchange:   crabbitmq.EventsExchange,
+				routingKey: routingKey,
+				message:    message,
+			}
+			ir.data.pubPool.request(publishing)
 		},
 		Timeout: ir.transformationTimeout,
 	}
-	if err := publisher.PublishWithDeliveryAssurance(
-		ctx, crabbitmq.TransformationsExchange, routingKey, message, deliveryOpts,
-	); err != nil {
-		return nil, err
+
+	publishing := &publishing{
+		exchange:     crabbitmq.TransformationsExchange,
+		routingKey:   routingKey,
+		message:      message,
+		assurance:    true,
+		deliveryOpts: deliveryOpts,
 	}
+	ir.data.pubPool.request(publishing)
 
 	return &biz.ScheduledImageTransformation{
 		TransformationId: tId,
@@ -580,7 +555,7 @@ func NewImageRepo(data *Data, logger log.Logger) biz.ImageRepo {
 		log:  log.NewHelper(logger),
 	}
 
-	if timeout := data.config.Event.TransformationTimeout; timeout != nil {
+	if timeout := data.config.Events.Publisher.Timeout; timeout != nil {
 		repo.transformationTimeout = timeout.AsDuration()
 	}
 

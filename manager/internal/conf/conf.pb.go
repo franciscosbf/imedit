@@ -217,7 +217,7 @@ type Data struct {
 	Minio         *Data_MinIO            `protobuf:"bytes,3,opt,name=minio,proto3" json:"minio,omitempty"`
 	Rabbitmq      *Data_RabbitMQ         `protobuf:"bytes,4,opt,name=rabbitmq,proto3" json:"rabbitmq,omitempty"`
 	Cache         *Data_Cache            `protobuf:"bytes,5,opt,name=cache,proto3" json:"cache,omitempty"`
-	Event         *Data_Event            `protobuf:"bytes,6,opt,name=event,proto3" json:"event,omitempty"`
+	Events        *Data_Events           `protobuf:"bytes,6,opt,name=events,proto3" json:"events,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -287,9 +287,9 @@ func (x *Data) GetCache() *Data_Cache {
 	return nil
 }
 
-func (x *Data) GetEvent() *Data_Event {
+func (x *Data) GetEvents() *Data_Events {
 	if x != nil {
-		return x.Event
+		return x.Events
 	}
 	return nil
 }
@@ -654,27 +654,27 @@ func (x *Data_Cache) GetEvictionTime() *durationpb.Duration {
 	return nil
 }
 
-type Data_Event struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	TransformationTimeout *durationpb.Duration   `protobuf:"bytes,1,opt,name=transformation_timeout,json=transformationTimeout,proto3" json:"transformation_timeout,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+type Data_Events struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Publisher     *Data_Events_Publisher `protobuf:"bytes,1,opt,name=publisher,proto3" json:"publisher,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Data_Event) Reset() {
-	*x = Data_Event{}
+func (x *Data_Events) Reset() {
+	*x = Data_Events{}
 	mi := &file_conf_conf_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Data_Event) String() string {
+func (x *Data_Events) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Data_Event) ProtoMessage() {}
+func (*Data_Events) ProtoMessage() {}
 
-func (x *Data_Event) ProtoReflect() protoreflect.Message {
+func (x *Data_Events) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -686,16 +686,76 @@ func (x *Data_Event) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Data_Event.ProtoReflect.Descriptor instead.
-func (*Data_Event) Descriptor() ([]byte, []int) {
+// Deprecated: Use Data_Events.ProtoReflect.Descriptor instead.
+func (*Data_Events) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{3, 5}
 }
 
-func (x *Data_Event) GetTransformationTimeout() *durationpb.Duration {
+func (x *Data_Events) GetPublisher() *Data_Events_Publisher {
 	if x != nil {
-		return x.TransformationTimeout
+		return x.Publisher
 	}
 	return nil
+}
+
+type Data_Events_Publisher struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timeout       *durationpb.Duration   `protobuf:"bytes,1,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	Concurrency   uint32                 `protobuf:"varint,2,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	BufferSize    uint32                 `protobuf:"varint,3,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Data_Events_Publisher) Reset() {
+	*x = Data_Events_Publisher{}
+	mi := &file_conf_conf_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Data_Events_Publisher) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Data_Events_Publisher) ProtoMessage() {}
+
+func (x *Data_Events_Publisher) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Data_Events_Publisher.ProtoReflect.Descriptor instead.
+func (*Data_Events_Publisher) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{3, 5, 0}
+}
+
+func (x *Data_Events_Publisher) GetTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.Timeout
+	}
+	return nil
+}
+
+func (x *Data_Events_Publisher) GetConcurrency() uint32 {
+	if x != nil {
+		return x.Concurrency
+	}
+	return 0
+}
+
+func (x *Data_Events_Publisher) GetBufferSize() uint32 {
+	if x != nil {
+		return x.BufferSize
+	}
+	return 0
 }
 
 var File_conf_conf_proto protoreflect.FileDescriptor
@@ -720,14 +780,14 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x0fpublic_key_file\x18\x02 \x01(\tR\rpublicKeyFile\x12(\n" +
 	"\x10private_key_file\x18\x03 \x01(\tR\x0eprivateKeyFile\x12\x16\n" +
 	"\x06issuer\x18\x04 \x01(\tR\x06issuer\x12B\n" +
-	"\x0fexpiration_time\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x0eexpirationTime\"\xf0\a\n" +
+	"\x0fexpiration_time\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x0eexpirationTime\"\xea\b\n" +
 	"\x04Data\x125\n" +
 	"\bdatabase\x18\x01 \x01(\v2\x19.kratos.api.Data.DatabaseR\bdatabase\x12,\n" +
 	"\x05redis\x18\x02 \x01(\v2\x16.kratos.api.Data.RedisR\x05redis\x12,\n" +
 	"\x05minio\x18\x03 \x01(\v2\x16.kratos.api.Data.MinIOR\x05minio\x125\n" +
 	"\brabbitmq\x18\x04 \x01(\v2\x19.kratos.api.Data.RabbitMQR\brabbitmq\x12,\n" +
-	"\x05cache\x18\x05 \x01(\v2\x16.kratos.api.Data.CacheR\x05cache\x12,\n" +
-	"\x05event\x18\x06 \x01(\v2\x16.kratos.api.Data.EventR\x05event\x1a:\n" +
+	"\x05cache\x18\x05 \x01(\v2\x16.kratos.api.Data.CacheR\x05cache\x12/\n" +
+	"\x06events\x18\x06 \x01(\v2\x17.kratos.api.Data.EventsR\x06events\x1a:\n" +
 	"\bDatabase\x12\x16\n" +
 	"\x06driver\x18\x01 \x01(\tR\x06driver\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x1a\xfb\x01\n" +
@@ -749,9 +809,14 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\busername\x18\x03 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x04 \x01(\tR\bpassword\x1aG\n" +
 	"\x05Cache\x12>\n" +
-	"\reviction_time\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\fevictionTime\x1aY\n" +
-	"\x05Event\x12P\n" +
-	"\x16transformation_timeout\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x15transformationTimeoutB\x1cZ\x1amanager/internal/conf;confb\x06proto3"
+	"\reviction_time\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\fevictionTime\x1a\xcf\x01\n" +
+	"\x06Events\x12?\n" +
+	"\tpublisher\x18\x01 \x01(\v2!.kratos.api.Data.Events.PublisherR\tpublisher\x1a\x83\x01\n" +
+	"\tPublisher\x123\n" +
+	"\atimeout\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12 \n" +
+	"\vconcurrency\x18\x02 \x01(\rR\vconcurrency\x12\x1f\n" +
+	"\vbuffer_size\x18\x03 \x01(\rR\n" +
+	"bufferSizeB\x1cZ\x1amanager/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -765,45 +830,47 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_conf_conf_proto_goTypes = []any{
-	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
-	(*Server)(nil),              // 1: kratos.api.Server
-	(*Auth)(nil),                // 2: kratos.api.Auth
-	(*Data)(nil),                // 3: kratos.api.Data
-	(*Server_HTTP)(nil),         // 4: kratos.api.Server.HTTP
-	(*Data_Database)(nil),       // 5: kratos.api.Data.Database
-	(*Data_Redis)(nil),          // 6: kratos.api.Data.Redis
-	(*Data_MinIO)(nil),          // 7: kratos.api.Data.MinIO
-	(*Data_RabbitMQ)(nil),       // 8: kratos.api.Data.RabbitMQ
-	(*Data_Cache)(nil),          // 9: kratos.api.Data.Cache
-	(*Data_Event)(nil),          // 10: kratos.api.Data.Event
-	(*durationpb.Duration)(nil), // 11: google.protobuf.Duration
+	(*Bootstrap)(nil),             // 0: kratos.api.Bootstrap
+	(*Server)(nil),                // 1: kratos.api.Server
+	(*Auth)(nil),                  // 2: kratos.api.Auth
+	(*Data)(nil),                  // 3: kratos.api.Data
+	(*Server_HTTP)(nil),           // 4: kratos.api.Server.HTTP
+	(*Data_Database)(nil),         // 5: kratos.api.Data.Database
+	(*Data_Redis)(nil),            // 6: kratos.api.Data.Redis
+	(*Data_MinIO)(nil),            // 7: kratos.api.Data.MinIO
+	(*Data_RabbitMQ)(nil),         // 8: kratos.api.Data.RabbitMQ
+	(*Data_Cache)(nil),            // 9: kratos.api.Data.Cache
+	(*Data_Events)(nil),           // 10: kratos.api.Data.Events
+	(*Data_Events_Publisher)(nil), // 11: kratos.api.Data.Events.Publisher
+	(*durationpb.Duration)(nil),   // 12: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.auth:type_name -> kratos.api.Auth
 	3,  // 2: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	4,  // 3: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	11, // 4: kratos.api.Server.shutdown_timeout:type_name -> google.protobuf.Duration
-	11, // 5: kratos.api.Auth.expiration_time:type_name -> google.protobuf.Duration
+	12, // 4: kratos.api.Server.shutdown_timeout:type_name -> google.protobuf.Duration
+	12, // 5: kratos.api.Auth.expiration_time:type_name -> google.protobuf.Duration
 	5,  // 6: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	6,  // 7: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
 	7,  // 8: kratos.api.Data.minio:type_name -> kratos.api.Data.MinIO
 	8,  // 9: kratos.api.Data.rabbitmq:type_name -> kratos.api.Data.RabbitMQ
 	9,  // 10: kratos.api.Data.cache:type_name -> kratos.api.Data.Cache
-	10, // 11: kratos.api.Data.event:type_name -> kratos.api.Data.Event
-	11, // 12: kratos.api.Server.HTTP.request_timeout:type_name -> google.protobuf.Duration
-	11, // 13: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
-	11, // 14: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	11, // 15: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	11, // 16: kratos.api.Data.Cache.eviction_time:type_name -> google.protobuf.Duration
-	11, // 17: kratos.api.Data.Event.transformation_timeout:type_name -> google.protobuf.Duration
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	10, // 11: kratos.api.Data.events:type_name -> kratos.api.Data.Events
+	12, // 12: kratos.api.Server.HTTP.request_timeout:type_name -> google.protobuf.Duration
+	12, // 13: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
+	12, // 14: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	12, // 15: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	12, // 16: kratos.api.Data.Cache.eviction_time:type_name -> google.protobuf.Duration
+	11, // 17: kratos.api.Data.Events.publisher:type_name -> kratos.api.Data.Events.Publisher
+	12, // 18: kratos.api.Data.Events.Publisher.timeout:type_name -> google.protobuf.Duration
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -817,7 +884,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
