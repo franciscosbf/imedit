@@ -15,7 +15,10 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-const defaultPublisherBufferSize = 50
+const (
+	defaultConcurrency         = 1
+	defaultPublisherBufferSize = 50
+)
 
 type ImageEventsServer interface {
 	TransformImage(context.Context, *ImageTransformations) error
@@ -36,31 +39,42 @@ func RegisterImageEventsServer(c *conf.Server, es *events.Server, srv ImageEvent
 		return err
 	}
 
-	qopts := events.QueueBindingOptions{
-		Name:       "",
-		Exchange:   crabbitmq.TransformationsExchange,
-		RoutingKey: "1",
-	}
-	qopts.WithQueueOptions(rabbitmq.WithAutoDelete(), rabbitmq.WithClassicQueue())
-	q, err := es.DeclareAndBindQueue(ctx, &qopts)
-	if err != nil {
-		return err
-	}
-
-	sopts := events.SenderOptions{}
-	if c.PublisherBufferSize > 0 {
-		sopts.BufferSize = int(c.PublisherBufferSize)
+	var pubBufSz int
+	if bufferSz := c.Publisher.BufferSize; bufferSz > 0 {
+		pubBufSz = int(bufferSz)
 	} else {
-		sopts.BufferSize = defaultPublisherBufferSize
+		pubBufSz = defaultPublisherBufferSize
 	}
-	requester := es.RegisterSender(&sopts)
 
-	copts := events.ConsumeEventsOptions{
-		Queue:   q.Name,
-		Handler: imageTransformationsHandler(srv, requester, log),
+	var concurrency int
+	if c.Concurrency > 0 {
+		concurrency = int(c.Concurrency)
+	} else {
+		concurrency = defaultConcurrency
 	}
-	copts.WithConsumerOptions(rabbitmq.WithExclusiveConsumer(), rabbitmq.WithAutoAck())
-	es.RegisterConsumer(&copts)
+
+	for ; concurrency > 0; concurrency-- {
+		qopts := events.QueueBindingOptions{
+			Name:       "",
+			Exchange:   crabbitmq.TransformationsExchange,
+			RoutingKey: "1",
+		}
+		qopts.WithQueueOptions(rabbitmq.WithAutoDelete(), rabbitmq.WithClassicQueue())
+		q, err := es.DeclareAndBindQueue(ctx, &qopts)
+		if err != nil {
+			return err
+		}
+
+		sopts := events.SenderOptions{BufferSize: pubBufSz}
+		requester := es.RegisterSender(&sopts)
+
+		copts := events.ConsumeEventsOptions{
+			Queue:   q.Name,
+			Handler: imageTransformationsHandler(srv, requester, log),
+		}
+		copts.WithConsumerOptions(rabbitmq.WithExclusiveConsumer(), rabbitmq.WithAutoAck())
+		es.RegisterConsumer(&copts)
+	}
 
 	return nil
 }

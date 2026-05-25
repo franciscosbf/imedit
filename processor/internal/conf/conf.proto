@@ -19,8 +19,13 @@ message Server {
     string password = 4;
   }
 
+  message Publisher {
+    uint32 buffer_size = 1;
+  }
+
   Events events = 1;
-  uint32 publisher_buffer_size = 2;
+  Publisher publisher = 2;
+  uint32 concurrency = 3;
 }
 
 
