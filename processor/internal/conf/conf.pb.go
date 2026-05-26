@@ -78,7 +78,8 @@ type Server struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Events        *Server_Events         `protobuf:"bytes,1,opt,name=events,proto3" json:"events,omitempty"`
 	Publisher     *Server_Publisher      `protobuf:"bytes,2,opt,name=publisher,proto3" json:"publisher,omitempty"`
-	Concurrency   uint32                 `protobuf:"varint,3,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	Consumer      *Server_Consumer       `protobuf:"bytes,3,opt,name=consumer,proto3" json:"consumer,omitempty"`
+	Concurrency   uint32                 `protobuf:"varint,4,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -123,6 +124,13 @@ func (x *Server) GetEvents() *Server_Events {
 func (x *Server) GetPublisher() *Server_Publisher {
 	if x != nil {
 		return x.Publisher
+	}
+	return nil
+}
+
+func (x *Server) GetConsumer() *Server_Consumer {
+	if x != nil {
+		return x.Consumer
 	}
 	return nil
 }
@@ -298,6 +306,50 @@ func (x *Server_Publisher) GetBufferSize() uint32 {
 	return 0
 }
 
+type Server_Consumer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Prefetch      uint32                 `protobuf:"varint,1,opt,name=prefetch,proto3" json:"prefetch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Server_Consumer) Reset() {
+	*x = Server_Consumer{}
+	mi := &file_conf_conf_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Server_Consumer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Server_Consumer) ProtoMessage() {}
+
+func (x *Server_Consumer) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Server_Consumer.ProtoReflect.Descriptor instead.
+func (*Server_Consumer) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{1, 2}
+}
+
+func (x *Server_Consumer) GetPrefetch() uint32 {
+	if x != nil {
+		return x.Prefetch
+	}
+	return 0
+}
+
 type Data_Redis struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
@@ -311,7 +363,7 @@ type Data_Redis struct {
 
 func (x *Data_Redis) Reset() {
 	*x = Data_Redis{}
-	mi := &file_conf_conf_proto_msgTypes[5]
+	mi := &file_conf_conf_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +375,7 @@ func (x *Data_Redis) String() string {
 func (*Data_Redis) ProtoMessage() {}
 
 func (x *Data_Redis) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[5]
+	mi := &file_conf_conf_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -385,7 +437,7 @@ type Data_MinIO struct {
 
 func (x *Data_MinIO) Reset() {
 	*x = Data_MinIO{}
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -397,7 +449,7 @@ func (x *Data_MinIO) String() string {
 func (*Data_MinIO) ProtoMessage() {}
 
 func (x *Data_MinIO) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,11 +494,12 @@ const file_conf_conf_proto_rawDesc = "" +
 	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"]\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
-	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\"\xc7\x02\n" +
+	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\"\xa8\x03\n" +
 	"\x06Server\x121\n" +
 	"\x06events\x18\x01 \x01(\v2\x19.kratos.api.Server.EventsR\x06events\x12:\n" +
-	"\tpublisher\x18\x02 \x01(\v2\x1c.kratos.api.Server.PublisherR\tpublisher\x12 \n" +
-	"\vconcurrency\x18\x03 \x01(\rR\vconcurrency\x1a~\n" +
+	"\tpublisher\x18\x02 \x01(\v2\x1c.kratos.api.Server.PublisherR\tpublisher\x127\n" +
+	"\bconsumer\x18\x03 \x01(\v2\x1b.kratos.api.Server.ConsumerR\bconsumer\x12 \n" +
+	"\vconcurrency\x18\x04 \x01(\rR\vconcurrency\x1a~\n" +
 	"\x06Events\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12 \n" +
 	"\vconnections\x18\x02 \x01(\rR\vconnections\x12\x1a\n" +
@@ -454,7 +507,9 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bpassword\x18\x04 \x01(\tR\bpassword\x1a,\n" +
 	"\tPublisher\x12\x1f\n" +
 	"\vbuffer_size\x18\x01 \x01(\rR\n" +
-	"bufferSize\"\xc3\x03\n" +
+	"bufferSize\x1a&\n" +
+	"\bConsumer\x12\x1a\n" +
+	"\bprefetch\x18\x01 \x01(\rR\bprefetch\"\xc3\x03\n" +
 	"\x04Data\x12,\n" +
 	"\x05redis\x18\x01 \x01(\v2\x16.kratos.api.Data.RedisR\x05redis\x12,\n" +
 	"\x05minio\x18\x02 \x01(\v2\x16.kratos.api.Data.MinIOR\x05minio\x1a\xfb\x01\n" +
@@ -483,32 +538,34 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
 	(*Data)(nil),                // 2: kratos.api.Data
 	(*Server_Events)(nil),       // 3: kratos.api.Server.Events
 	(*Server_Publisher)(nil),    // 4: kratos.api.Server.Publisher
-	(*Data_Redis)(nil),          // 5: kratos.api.Data.Redis
-	(*Data_MinIO)(nil),          // 6: kratos.api.Data.MinIO
-	(*durationpb.Duration)(nil), // 7: google.protobuf.Duration
+	(*Server_Consumer)(nil),     // 5: kratos.api.Server.Consumer
+	(*Data_Redis)(nil),          // 6: kratos.api.Data.Redis
+	(*Data_MinIO)(nil),          // 7: kratos.api.Data.MinIO
+	(*durationpb.Duration)(nil), // 8: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
-	1, // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
-	2, // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
-	3, // 2: kratos.api.Server.events:type_name -> kratos.api.Server.Events
-	4, // 3: kratos.api.Server.publisher:type_name -> kratos.api.Server.Publisher
-	5, // 4: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	6, // 5: kratos.api.Data.minio:type_name -> kratos.api.Data.MinIO
-	7, // 6: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
-	7, // 7: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	7, // 8: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
+	2,  // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
+	3,  // 2: kratos.api.Server.events:type_name -> kratos.api.Server.Events
+	4,  // 3: kratos.api.Server.publisher:type_name -> kratos.api.Server.Publisher
+	5,  // 4: kratos.api.Server.consumer:type_name -> kratos.api.Server.Consumer
+	6,  // 5: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
+	7,  // 6: kratos.api.Data.minio:type_name -> kratos.api.Data.MinIO
+	8,  // 7: kratos.api.Data.Redis.dial_timeout:type_name -> google.protobuf.Duration
+	8,  // 8: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	8,  // 9: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -522,7 +579,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

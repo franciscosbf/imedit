@@ -23,9 +23,14 @@ message Server {
     uint32 buffer_size = 1;
   }
 
+  message Consumer {
+    uint32 prefetch = 1;
+  }
+
   Events events = 1;
   Publisher publisher = 2;
-  uint32 concurrency = 3;
+  Consumer consumer = 3;
+  uint32 concurrency = 4;
 }
 
 

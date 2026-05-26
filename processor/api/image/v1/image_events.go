@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	defaultConcurrency         = 1
 	defaultPublisherBufferSize = 50
+	defaultConsumerPrefetch    = 1
+	defaultConcurrency         = 1
 )
 
 type ImageEventsServer interface {
@@ -46,6 +47,13 @@ func RegisterImageEventsServer(c *conf.Server, es *events.Server, srv ImageEvent
 		pubBufSz = defaultPublisherBufferSize
 	}
 
+	var conPrefetch int
+	if prefetch := c.Consumer.Prefetch; prefetch > 0 {
+		conPrefetch = int(prefetch)
+	} else {
+		conPrefetch = defaultConsumerPrefetch
+	}
+
 	var concurrency int
 	if c.Concurrency > 0 {
 		concurrency = int(c.Concurrency)
@@ -72,7 +80,10 @@ func RegisterImageEventsServer(c *conf.Server, es *events.Server, srv ImageEvent
 			Queue:   q.Name,
 			Handler: imageTransformationsHandler(srv, requester, log),
 		}
-		copts.WithConsumerOptions(rabbitmq.WithExclusiveConsumer(), rabbitmq.WithAutoAck())
+		copts.WithConsumerOptions(
+			rabbitmq.WithExclusiveConsumer(),
+			rabbitmq.WithPrefetchCount(conPrefetch),
+		)
 		es.RegisterConsumer(&copts)
 	}
 
@@ -85,10 +96,18 @@ func imageTransformationsHandler(
 	log *log.Helper,
 ) rabbitmq.MessageHandler {
 	return func(ctx context.Context, delivery *rabbitmq.Delivery) error {
+		defer func() {
+			if err := delivery.Ack(); err != nil {
+				log.Warnf("Failed to acknowledge transformation: %v", err)
+			}
+		}()
+
 		var transformations cmsgp.Transformations
 		tbuf := bytes.NewBuffer(delivery.Body)
 		if err := msgp.Decode(tbuf, &transformations); err != nil {
-			return err
+			log.Warnf("Failed to decode transformation request: %v", err)
+
+			return nil
 		}
 
 		req := ImageTransformations{
