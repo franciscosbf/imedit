@@ -30,6 +30,7 @@ import (
 	"github.com/coder/websocket"
 	ctest "github.com/franciscosbf/imedit/common/pkg/test"
 	"github.com/go-kratos/kratos/v2"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 	"github.com/stretchr/testify/assert"
@@ -62,6 +63,14 @@ type IntegrationSuite struct {
 
 func (s *IntegrationSuite) sendJsonRequest(method, path string, args, reply any, opts ...khttp.CallOption) error {
 	return s.client.Invoke(context.Background(), method, path, args, reply, opts...)
+}
+
+func (s *IntegrationSuite) verifyResponseError(err error, code int, reason, message string) {
+	assert.IsType(s.T(), &kerrors.Error{}, err)
+	kerr := err.(*kerrors.Error)
+	assert.EqualValues(s.T(), code, kerr.Code)
+	assert.Equal(s.T(), reason, kerr.Reason)
+	assert.Equal(s.T(), message, kerr.Message)
 }
 
 func (s *IntegrationSuite) sendRawRequest(

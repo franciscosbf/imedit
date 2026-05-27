@@ -58,14 +58,14 @@ func (ur *userRepo) UpdateUserPassword(
 			Only(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return uv1.ErrorUserNotFound("username %s was not found", username)
+				return uv1.ErrorUserNotFound("user was not found")
 			} else {
 				return err
 			}
 		}
 
 		if !matches(u.Password) {
-			return uv1.ErrorUserNotFound("username %s was not found", username)
+			return uv1.ErrorUserNotFound("user was not found")
 		}
 
 		newPassword, err := newPassword()

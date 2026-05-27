@@ -31,8 +31,8 @@ func NewHTTPServer(
 		khttp.Middleware(
 			recovery.Recovery(),
 			selector.Server(jwtAuth.Validator()).
-				Path("/v1/user/password").
-				Prefix("/v1/image").
+				Path(uv1.OperationUserUpdateUserPassword).
+				Prefix(iv1.ImageOperations).
 				Build(),
 			validate.ProtoValidate(),
 			iv1.ImageValidate(),
@@ -46,7 +46,7 @@ func NewHTTPServer(
 		timeout := c.Http.RequestTimeout.AsDuration()
 		opts = append(opts, khttp.Filter(func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if !strings.HasPrefix(r.URL.Path, "/v1/image/ws") {
+				if !strings.HasPrefix(r.URL.Path, iv1.ImageBasePath) {
 					ctx, cancel := context.WithTimeout(r.Context(), timeout)
 					defer cancel()
 					r = r.WithContext(ctx)

@@ -76,7 +76,8 @@ func (uu *UserUsecase) UpdatePassword(ctx context.Context, pwdUp *PasswordUpdate
 		},
 		func() (string, error) {
 			return uu.pwdGen.Hash(pwdUp.NewPassword)
-		})
+		},
+	)
 }
 
 func NewUserUsecase(jwtAuth auth.JwtAuthenticator, pwdGen auth.PasswordGenerator, repo UserRepo) *UserUsecase {

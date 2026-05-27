@@ -16,6 +16,11 @@ import (
 	jwtv5 "github.com/golang-jwt/jwt/v5"
 )
 
+func init() {
+	// NOTE: The error isn't well structured
+	jwt.ErrTokenParseFail.Message = strings.TrimRight(jwt.ErrTokenParseFail.Message, " ")
+}
+
 const (
 	bearerWord       string = "Bearer"
 	authorizationKey string = "Authorization"

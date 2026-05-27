@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/textproto"
+	"path"
 	"strings"
 
 	"manager/internal/conf"
@@ -21,7 +22,38 @@ import (
 )
 
 const (
-	defaultMultiPartMaxMemory uint32 = 32 << 20 // 32 MB
+	defaultMultiPartMaxMemory = 32 << 20 // 32 MB
+)
+
+const (
+	ImageOperations = "/api.image.v1.Image"
+	ImageBasePath   = "/v1/image"
+)
+
+func operationJoin(o string) string {
+	return path.Join(ImageOperations, o)
+}
+
+func pathJoin(p string) string {
+	return path.Join(ImageBasePath, p)
+}
+
+var (
+	OperationUploadImage       = operationJoin("/UploadImage")
+	OperationGetSingleImage    = operationJoin("/GetSingleImage")
+	OperationGetPaginatedImage = operationJoin("/GetPaginatedImage")
+	OperationGetImageMeta      = operationJoin("/GetImageMeta")
+	OperationTransformImage    = operationJoin("/TransformImage")
+	OperationImageNotification = operationJoin("/ImageNotification")
+)
+
+var (
+	uploadImagePath       = pathJoin("/upload")
+	getSingleImagePath    = pathJoin("/single/{image_id}")
+	getPaginatedImagePath = pathJoin("/paginated")
+	getImageMetaPath      = pathJoin("/meta/{image_id}")
+	transformImagePath    = pathJoin("/transform")
+	imageNotificationPath = pathJoin("/ws")
 )
 
 type ImageHTTPServer interface {
@@ -37,61 +69,63 @@ func RegisterImageHTTPServer(c *conf.Server, s *khttp.Server, srv ImageHTTPServe
 	log := log.NewHelper(logger)
 
 	route := s.Route("/")
-	route.POST("/v1/image/upload", uploadImageHandler(c, srv))
-	route.GET("/v1/image/single/{image_id}", getSingleImageHandler(srv, log))
-	route.GET("/v1/image/paginated", getPaginatedImageHandler(srv, log))
-	route.GET("/v1/image/meta/{image_id}", getImageMetaHandler(srv))
-	route.PUT("/v1/image/transform", transformImageHandler(srv))
-	route.GET("/v1/image/ws", imageNotificationHandler(srv, log))
+	route.POST(uploadImagePath, uploadImageHandler(c, srv))
+	route.GET(getSingleImagePath, getSingleImageHandler(srv, log))
+	route.GET(getPaginatedImagePath, getPaginatedImageHandler(srv, log))
+	route.GET(getImageMetaPath, getImageMetaHandler(srv))
+	route.PUT(transformImagePath, transformImageHandler(srv))
+	route.GET(imageNotificationPath, imageNotificationHandler(srv, log))
 }
 
 func uploadImageHandler(c *conf.Server, srv ImageHTTPServer) func(ctx khttp.Context) error {
-	multiPartMaxMemory := c.Http.MaxImageSize
-
-	if multiPartMaxMemory == 0 {
+	var multiPartMaxMemory int
+	if maxImageSize := c.Http.MaxImageSize; maxImageSize > 0 {
+		multiPartMaxMemory = int(c.Http.MaxImageSize)
+	} else {
 		multiPartMaxMemory = defaultMultiPartMaxMemory
 	}
 
 	return func(ctx khttp.Context) error {
 		req := ctx.Request()
 
-		if err := req.ParseMultipartForm(int64(multiPartMaxMemory)); err != nil {
-			return kerrors.BadRequest("CODEC", err.Error())
-		}
+		khttp.SetOperation(ctx, OperationUploadImage)
+		mHandler := ctx.Middleware(func(ctx context.Context, _ any) (any, error) {
+			if err := req.ParseMultipartForm(int64(multiPartMaxMemory)); err != nil {
+				return nil, kerrors.BadRequest("CODEC", err.Error())
+			}
 
-		file, fHandler, err := req.FormFile("image")
-		if err != nil {
-			return kerrors.InternalServer("MULTIPART", err.Error())
-		}
-		defer func() {
-			_ = file.Close()
-		}()
+			file, fHandler, err := req.FormFile("image")
+			if err != nil {
+				return nil, kerrors.InternalServer("MULTIPART", err.Error())
+			}
+			defer func() {
+				_ = file.Close()
+			}()
 
-		imgName := fHandler.Filename
-		imgType := fHandler.Header.Get("Content-Type")
-		imgContent, err := io.ReadAll(file)
-		if err != nil {
-			return kerrors.InternalServer("MULTIPART_PARSER", err.Error())
-		}
+			imgName := fHandler.Filename
+			imgType := fHandler.Header.Get("Content-Type")
+			imgContent, err := io.ReadAll(file)
+			if err != nil {
+				return nil, kerrors.InternalServer("MULTIPART_PARSER", err.Error())
+			}
 
-		if !strings.HasPrefix(imgType, "image/") {
-			return kerrors.BadRequest("CODEC", "expected image file type in Content-Type header value")
-		}
+			if !strings.HasPrefix(imgType, "image/") {
+				return nil, kerrors.BadRequest("CODEC", "expected image file type in Content-Type header value")
+			}
 
-		if http.DetectContentType(imgContent) != imgType {
-			return kerrors.BadRequest("CODEC", "unrecognized image")
-		}
+			if http.DetectContentType(imgContent) != imgType {
+				return nil, kerrors.BadRequest("CODEC", "unrecognized image")
+			}
 
-		imgType = strings.TrimLeft(imgType, "image/")
+			imgType = strings.TrimLeft(imgType, "image/")
 
-		in := ImageUpload{
-			Image: ImageContent{imgName, imgType, imgContent},
-		}
+			in := ImageUpload{
+				Image: ImageContent{imgName, imgType, imgContent},
+			}
 
-		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
-			return srv.UploadImage(ctx, req.(*ImageUpload))
+			return srv.UploadImage(ctx, &in)
 		})
-		out, err := mHandler(ctx, &in)
+		out, err := mHandler(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -157,6 +191,7 @@ func getSingleImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.
 			return err
 		}
 
+		khttp.SetOperation(ctx, OperationGetSingleImage)
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
 			return srv.GetSingleImage(ctx, req.(*Image))
 		})
@@ -198,6 +233,7 @@ func getPaginatedImageHandler(srv ImageHTTPServer, log *log.Helper) func(ctx kht
 			return err
 		}
 
+		khttp.SetOperation(ctx, OperationGetPaginatedImage)
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
 			return srv.GetPaginatedImage(ctx, req.(*Pagination))
 		})
@@ -227,6 +263,7 @@ func getImageMetaHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 			return err
 		}
 
+		khttp.SetOperation(ctx, OperationGetImageMeta)
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
 			return srv.GetImageMeta(ctx, req.(*Image))
 		})
@@ -247,6 +284,7 @@ func transformImageHandler(srv ImageHTTPServer) func(ctx khttp.Context) error {
 			return err
 		}
 
+		khttp.SetOperation(ctx, OperationTransformImage)
 		mHandler := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
 			return srv.TransformImage(ctx, req.(*ImageTransformations))
 		})
@@ -278,9 +316,9 @@ func (nc *notifierClient) sendEvent(ctx context.Context, event Event) error {
 func imageNotificationHandler(srv ImageHTTPServer, log *log.Helper) func(ctx khttp.Context) error {
 	return func(ctx khttp.Context) (_ error) {
 		w := ctx.Response()
-
 		r := ctx.Request()
 
+		khttp.SetOperation(ctx, OperationImageNotification)
 		mHandler := ctx.Middleware(func(ctx context.Context, _ any) (_ any, _ error) {
 			conn, err := websocket.Accept(w, r, nil)
 			if err != nil {
