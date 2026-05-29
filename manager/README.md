@@ -1,4 +1,0 @@
-# Manager Service
-
-TODO
-
