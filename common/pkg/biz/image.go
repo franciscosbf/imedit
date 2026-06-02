@@ -54,6 +54,7 @@ type FilterImage struct {
 type ImageTransformations struct {
 	Crop   *CropImage
 	Resize *ResizeImage
+	Filter *FilterImage
 	Rotate *uint32
 	Format *ImageEncoding
 }

@@ -128,6 +128,12 @@ func imageTransformationsHandler(
 				Height: resize.Height,
 			}
 		}
+		if filter := transformations.Filter; filter != nil {
+			req.Transformations.Filter = &FilterImage{
+				Grayscale: filter.Grayscale,
+				Sepia:     filter.Sepia,
+			}
+		}
 		if rotate := transformations.Rotate; rotate != nil {
 			req.Transformations.Rotate = rotate
 		}

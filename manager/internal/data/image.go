@@ -8,14 +8,14 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"strconv"
-	"time"
-
-	iv1 "manager/api/image/v1"
 	"manager/ent"
 	"manager/ent/user"
 	"manager/internal/biz"
 	"manager/msgp/image"
+	"strconv"
+	"time"
+
+	iv1 "manager/api/image/v1"
 
 	"github.com/cloudresty/go-rabbitmq"
 	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
@@ -277,6 +277,11 @@ func (ir *imageRepo) TransformStoredUserImage(
 			Width:  transformations.Resize.Width,
 			Height: transformations.Resize.Height,
 		}
+	}
+	if transformations.Filter != nil {
+		mT.Filter = new(cmsgp.Filter)
+		mT.Filter.Grayscale = transformations.Filter.Grayscale
+		mT.Filter.Sepia = transformations.Filter.Sepia
 	}
 	if transformations.Format != nil {
 		mT.Format = new(string)

@@ -32,6 +32,7 @@ type Transformations struct {
 	ImageId          string  `msg:"image_id"`
 	Crop             *Crop   `msg:"crop"`
 	Resize           *Resize `msg:"resize"`
+	Filter           *Filter `msg:"filter"`
 	Rotate           *uint32 `msg:"rotate"`
 	Format           *string `msg:"format"`
 }

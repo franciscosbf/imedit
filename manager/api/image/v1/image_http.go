@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"manager/internal/conf"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -11,8 +12,6 @@ import (
 	"net/textproto"
 	"path"
 	"strings"
-
-	"manager/internal/conf"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"

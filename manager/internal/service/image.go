@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"manager/internal/biz"
 
 	api "manager/api/image/v1"
-	"manager/internal/biz"
 
 	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
 	"github.com/go-kratos/kratos/v2/log"
@@ -124,6 +124,12 @@ func (s *ImageService) TransformImage(ctx context.Context, req *api.ImageTransfo
 		transformations.Resize = &cbiz.ResizeImage{
 			Width:  resize.Width,
 			Height: resize.Height,
+		}
+	}
+	if filter := req.Transformations.Filter; filter != nil {
+		transformations.Filter = &cbiz.FilterImage{
+			Grayscale: filter.Grayscale,
+			Sepia:     filter.Sepia,
 		}
 	}
 	if format := req.Transformations.Format; format != nil {

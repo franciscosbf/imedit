@@ -681,6 +681,24 @@ func (z *Transformations) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "ImageId")
 				return
 			}
+		case "crop":
+			if dc.IsNil() {
+				err = dc.ReadNil()
+				if err != nil {
+					err = msgp.WrapError(err, "Crop")
+					return
+				}
+				z.Crop = nil
+			} else {
+				if z.Crop == nil {
+					z.Crop = new(Crop)
+				}
+				err = z.Crop.DecodeMsg(dc)
+				if err != nil {
+					err = msgp.WrapError(err, "Crop")
+					return
+				}
+			}
 		case "resize":
 			if dc.IsNil() {
 				err = dc.ReadNil()
@@ -728,22 +746,51 @@ func (z *Transformations) DecodeMsg(dc *msgp.Reader) (err error) {
 					}
 				}
 			}
-		case "crop":
+		case "filter":
 			if dc.IsNil() {
 				err = dc.ReadNil()
 				if err != nil {
-					err = msgp.WrapError(err, "Crop")
+					err = msgp.WrapError(err, "Filter")
 					return
 				}
-				z.Crop = nil
+				z.Filter = nil
 			} else {
-				if z.Crop == nil {
-					z.Crop = new(Crop)
+				if z.Filter == nil {
+					z.Filter = new(Filter)
 				}
-				err = z.Crop.DecodeMsg(dc)
+				var zb0003 uint32
+				zb0003, err = dc.ReadMapHeader()
 				if err != nil {
-					err = msgp.WrapError(err, "Crop")
+					err = msgp.WrapError(err, "Filter")
 					return
+				}
+				for zb0003 > 0 {
+					zb0003--
+					field, err = dc.ReadMapKeyPtr()
+					if err != nil {
+						err = msgp.WrapError(err, "Filter")
+						return
+					}
+					switch msgp.UnsafeString(field) {
+					case "grayscale":
+						z.Filter.Grayscale, err = dc.ReadBool()
+						if err != nil {
+							err = msgp.WrapError(err, "Filter", "Grayscale")
+							return
+						}
+					case "sepia":
+						z.Filter.Sepia, err = dc.ReadBool()
+						if err != nil {
+							err = msgp.WrapError(err, "Filter", "Sepia")
+							return
+						}
+					default:
+						err = dc.Skip()
+						if err != nil {
+							err = msgp.WrapError(err, "Filter")
+							return
+						}
+					}
 				}
 			}
 		case "rotate":
@@ -795,9 +842,9 @@ func (z *Transformations) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Transformations) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 7
+	// map header, size 8
 	// write "transformation_id"
-	err = en.Append(0x87, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	err = en.Append(0x88, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	if err != nil {
 		return
 	}
@@ -825,6 +872,23 @@ func (z *Transformations) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		err = msgp.WrapError(err, "ImageId")
 		return
+	}
+	// write "crop"
+	err = en.Append(0xa4, 0x63, 0x72, 0x6f, 0x70)
+	if err != nil {
+		return
+	}
+	if z.Crop == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		err = z.Crop.EncodeMsg(en)
+		if err != nil {
+			err = msgp.WrapError(err, "Crop")
+			return
+		}
 	}
 	// write "resize"
 	err = en.Append(0xa6, 0x72, 0x65, 0x73, 0x69, 0x7a, 0x65)
@@ -859,20 +923,36 @@ func (z *Transformations) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	}
-	// write "crop"
-	err = en.Append(0xa4, 0x63, 0x72, 0x6f, 0x70)
+	// write "filter"
+	err = en.Append(0xa6, 0x66, 0x69, 0x6c, 0x74, 0x65, 0x72)
 	if err != nil {
 		return
 	}
-	if z.Crop == nil {
+	if z.Filter == nil {
 		err = en.WriteNil()
 		if err != nil {
 			return
 		}
 	} else {
-		err = z.Crop.EncodeMsg(en)
+		// map header, size 2
+		// write "grayscale"
+		err = en.Append(0x82, 0xa9, 0x67, 0x72, 0x61, 0x79, 0x73, 0x63, 0x61, 0x6c, 0x65)
 		if err != nil {
-			err = msgp.WrapError(err, "Crop")
+			return
+		}
+		err = en.WriteBool(z.Filter.Grayscale)
+		if err != nil {
+			err = msgp.WrapError(err, "Filter", "Grayscale")
+			return
+		}
+		// write "sepia"
+		err = en.Append(0xa5, 0x73, 0x65, 0x70, 0x69, 0x61)
+		if err != nil {
+			return
+		}
+		err = en.WriteBool(z.Filter.Sepia)
+		if err != nil {
+			err = msgp.WrapError(err, "Filter", "Sepia")
 			return
 		}
 	}
@@ -916,9 +996,9 @@ func (z *Transformations) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Transformations) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 7
+	// map header, size 8
 	// string "transformation_id"
-	o = append(o, 0x87, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+	o = append(o, 0x88, 0xb1, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 	o = msgp.AppendString(o, z.TransformationId)
 	// string "username"
 	o = append(o, 0xa8, 0x75, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65)
@@ -926,6 +1006,17 @@ func (z *Transformations) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "image_id"
 	o = append(o, 0xa8, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x5f, 0x69, 0x64)
 	o = msgp.AppendString(o, z.ImageId)
+	// string "crop"
+	o = append(o, 0xa4, 0x63, 0x72, 0x6f, 0x70)
+	if z.Crop == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		o, err = z.Crop.MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "Crop")
+			return
+		}
+	}
 	// string "resize"
 	o = append(o, 0xa6, 0x72, 0x65, 0x73, 0x69, 0x7a, 0x65)
 	if z.Resize == nil {
@@ -939,16 +1030,18 @@ func (z *Transformations) MarshalMsg(b []byte) (o []byte, err error) {
 		o = append(o, 0xa6, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74)
 		o = msgp.AppendUint32(o, z.Resize.Height)
 	}
-	// string "crop"
-	o = append(o, 0xa4, 0x63, 0x72, 0x6f, 0x70)
-	if z.Crop == nil {
+	// string "filter"
+	o = append(o, 0xa6, 0x66, 0x69, 0x6c, 0x74, 0x65, 0x72)
+	if z.Filter == nil {
 		o = msgp.AppendNil(o)
 	} else {
-		o, err = z.Crop.MarshalMsg(o)
-		if err != nil {
-			err = msgp.WrapError(err, "Crop")
-			return
-		}
+		// map header, size 2
+		// string "grayscale"
+		o = append(o, 0x82, 0xa9, 0x67, 0x72, 0x61, 0x79, 0x73, 0x63, 0x61, 0x6c, 0x65)
+		o = msgp.AppendBool(o, z.Filter.Grayscale)
+		// string "sepia"
+		o = append(o, 0xa5, 0x73, 0x65, 0x70, 0x69, 0x61)
+		o = msgp.AppendBool(o, z.Filter.Sepia)
 	}
 	// string "rotate"
 	o = append(o, 0xa6, 0x72, 0x6f, 0x74, 0x61, 0x74, 0x65)
@@ -1003,6 +1096,23 @@ func (z *Transformations) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "ImageId")
 				return
 			}
+		case "crop":
+			if msgp.IsNil(bts) {
+				bts, err = msgp.ReadNilBytes(bts)
+				if err != nil {
+					return
+				}
+				z.Crop = nil
+			} else {
+				if z.Crop == nil {
+					z.Crop = new(Crop)
+				}
+				bts, err = z.Crop.UnmarshalMsg(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "Crop")
+					return
+				}
+			}
 		case "resize":
 			if msgp.IsNil(bts) {
 				bts, err = msgp.ReadNilBytes(bts)
@@ -1049,21 +1159,50 @@ func (z *Transformations) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					}
 				}
 			}
-		case "crop":
+		case "filter":
 			if msgp.IsNil(bts) {
 				bts, err = msgp.ReadNilBytes(bts)
 				if err != nil {
 					return
 				}
-				z.Crop = nil
+				z.Filter = nil
 			} else {
-				if z.Crop == nil {
-					z.Crop = new(Crop)
+				if z.Filter == nil {
+					z.Filter = new(Filter)
 				}
-				bts, err = z.Crop.UnmarshalMsg(bts)
+				var zb0003 uint32
+				zb0003, bts, err = msgp.ReadMapHeaderBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "Crop")
+					err = msgp.WrapError(err, "Filter")
 					return
+				}
+				for zb0003 > 0 {
+					zb0003--
+					field, bts, err = msgp.ReadMapKeyZC(bts)
+					if err != nil {
+						err = msgp.WrapError(err, "Filter")
+						return
+					}
+					switch msgp.UnsafeString(field) {
+					case "grayscale":
+						z.Filter.Grayscale, bts, err = msgp.ReadBoolBytes(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "Filter", "Grayscale")
+							return
+						}
+					case "sepia":
+						z.Filter.Sepia, bts, err = msgp.ReadBoolBytes(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "Filter", "Sepia")
+							return
+						}
+					default:
+						bts, err = msgp.Skip(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "Filter")
+							return
+						}
+					}
 				}
 			}
 		case "rotate":
@@ -1114,17 +1253,23 @@ func (z *Transformations) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Transformations) Msgsize() (s int) {
-	s = 1 + 18 + msgp.StringPrefixSize + len(z.TransformationId) + 9 + msgp.StringPrefixSize + len(z.Username) + 9 + msgp.StringPrefixSize + len(z.ImageId) + 7
+	s = 1 + 18 + msgp.StringPrefixSize + len(z.TransformationId) + 9 + msgp.StringPrefixSize + len(z.Username) + 9 + msgp.StringPrefixSize + len(z.ImageId) + 5
+	if z.Crop == nil {
+		s += msgp.NilSize
+	} else {
+		s += z.Crop.Msgsize()
+	}
+	s += 7
 	if z.Resize == nil {
 		s += msgp.NilSize
 	} else {
 		s += 1 + 6 + msgp.Uint32Size + 7 + msgp.Uint32Size
 	}
-	s += 5
-	if z.Crop == nil {
+	s += 7
+	if z.Filter == nil {
 		s += msgp.NilSize
 	} else {
-		s += z.Crop.Msgsize()
+		s += 1 + 10 + msgp.BoolSize + 6 + msgp.BoolSize
 	}
 	s += 7
 	if z.Rotate == nil {

@@ -55,6 +55,7 @@ type FilterImage struct {
 type TransformImage struct {
 	Crop   *CropImage   `json:"crop"`
 	Resize *ResizeImage `json:"resize"`
+	Filter *FilterImage `json:"filter"`
 	Rotate *uint32      `json:"rotate"`
 	Format *string      `json:"format"`
 }

@@ -11,6 +11,7 @@ import (
 
 	"processor/internal/biz"
 
+	"github.com/anthonynsimon/bild/effect"
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 	cbiz "github.com/franciscosbf/imedit/common/pkg/biz"
@@ -69,7 +70,7 @@ func (ir *imageRepo) TransformImage(
 		return err
 	}
 
-	var cropped, resized, rotated bool
+	var cropped, resized, filtered, rotated bool
 	if crop := transformations.Crop; crop != nil {
 		cx, cy, cw, ch := int(crop.X), int(crop.Y), int(crop.Width), int(crop.Height)
 		if bounds := img.Bounds(); cx != 0 || cy != 0 || cw != bounds.Dx() || ch != bounds.Dy() {
@@ -85,12 +86,20 @@ func (ir *imageRepo) TransformImage(
 			resized = true
 		}
 	}
+	if filter := transformations.Filter; filter != nil {
+		if filter.Grayscale {
+			img = effect.Grayscale(img)
+		}
+		if filter.Sepia {
+			img = effect.Sepia(img)
+		}
+	}
 	if rotate := transformations.Rotate; rotate != nil {
 		img = transform.Rotate(img, float64(*rotate), nil)
 		rotated = true
 	}
 
-	if !cropped && !resized && !rotated {
+	if !cropped && !resized && !filtered && !rotated {
 		return nil
 	}
 

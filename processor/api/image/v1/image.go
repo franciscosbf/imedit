@@ -20,6 +20,7 @@ type FilterImage struct {
 type TransformImage struct {
 	Crop   *CropImage
 	Resize *ResizeImage
+	Filter *FilterImage
 	Rotate *uint32
 	Format *string
 }
